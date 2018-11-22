@@ -41,11 +41,14 @@
 static void ubus_lookup_cb(struct ubus_context *ctx, struct ubus_object_data *obj, void *user)
 {
 	(void)ctx;
+	struct ws_request_base *req = user;
+	struct wsu_peer *peer = wsi_to_peer(req->wsi);
 
 	lwsl_info("looked up %s\n", obj->path);
-	if (!ubusx_acl__allow_object(obj->path /* object name */))
-		return;
-	struct ws_request_base *req = user;
+	if (strncmp(peer->sid, "X-tls-certificate", strlen("X-tls-certificate")) == 0) {
+		if (!ubusx_acl__allow_object(obj->path /* object name */))
+			return;
+	}
 
 	void *objs_tkt = blobmsg_open_table(&req->retbuf, obj->path);
 
