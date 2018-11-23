@@ -85,7 +85,7 @@ static enum wsu_ext_result wsu_ext_restrict_interface(struct lws *wsi,
 /**
  * \brief This access checker checks if the client is authenticated via TLS certificate. If so, access check is successful
  */
-static enum wsu_ext_result wsu_ext_check_tls(struct lws *wsi)
+static enum wsu_ext_result wsu_ext_check_tls(struct lws *wsi, const char *object)
 {
 	// return DEFAULT since next auth check may allow this session
 	enum wsu_ext_result res = EXT_CHECK_DENY;
@@ -106,6 +106,12 @@ static enum wsu_ext_result wsu_ext_check_tls(struct lws *wsi)
 		lwsl_notice("wsi %p TLS cert verification failure\n", wsi);
 		goto exit;
 	}
+
+	if (!ubusx_acl__allow_object(object /* object name */)) {
+		lwsl_notice("wsi %p access restricted by ubusx_acl\n", wsi);
+		goto exit;
+	}
+
 	res = EXT_CHECK_ALLOW;
 
 #ifdef _DEBUG
@@ -300,7 +306,7 @@ int wsubus_access_check_(
 		}
 #ifdef LWS_OPENSSL_SUPPORT
 		else if (!strcmp("tls-certificate", esid)) {
-			res = wsu_ext_check_tls(wsi);
+			res = wsu_ext_check_tls(wsi, object);
 		}
 #endif
 	}
