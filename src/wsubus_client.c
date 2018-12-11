@@ -261,7 +261,15 @@ static bool validate_ip_port_path(const char *addr, int *port, const char *path)
 
 static bool unique_ip(const char *addr)
 {
-	return !get_client_by_ip(addr);
+	struct client_connection_info *client;
+
+	client = get_client_by_ip(addr);
+	if (!client)
+		return true;
+
+	/* a client in a teardown state is waiting to be removed, and can therefore
+	be considered to be a unique/non-existing entry */
+	return client->state == CONNECTION_STATE_TEARINGDOWN;
 }
 
 int wsubus_client_create(const char *addr, int port,
