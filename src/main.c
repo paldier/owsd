@@ -546,9 +546,11 @@ ssl:
 		}
 
 		// per-vhost storage is lws-allocated
-		struct vh_context **pvh_context = lws_protocol_vh_priv_zalloc(vh, &c->vh_info.protocols[1] /* ubus */, sizeof pvh_context);
+		/* allocate private memory for one pointer */
+		unsigned long *pvh_context = lws_protocol_vh_priv_zalloc(vh,
+				&c->vh_info.protocols[1] /* ubus */, sizeof(unsigned long));
 
-		// we allocate a pointer and point to per-vhost storage
+		/* re-assign the private pointer to point to the vh_ctx we have prepared */
 		*pvh_context = &c->vh_ctx;
 	}
 
