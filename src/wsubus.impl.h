@@ -293,6 +293,9 @@ static inline int wsu_peer_init(struct wsu_peer *peer, enum wsu_role role)
 
 static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 {
+	if (peer->role != WSUBUS_ROLE_CLIENT && peer->role != WSUBUS_ROLE_REMOTE)
+		return 0;
+
 	json_tokener_free(peer->curr_msg.jtok);
 	peer->curr_msg.jtok = NULL;
 
