@@ -156,13 +156,9 @@ static struct client_connection_info *get_client_by_ip(const char *ip)
 {
 	struct client_connection_info *client;
 
-	list_for_each_entry(client, &connect_infos.clients, list) {
-		if (client->state == CONNECTION_STATE_TEARINGDOWN)
-			continue;
-
+	list_for_each_entry(client, &connect_infos.clients, list)
 		if (strcmp(ip, client->connection_info.address) == 0)
 			return client;
-	}
 
 	return NULL;
 }
