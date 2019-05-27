@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Inteno Broadband Technology AB. All rights reserved.
+ * Copyright (C) 2018 iopsys Software Solutions AB. All rights reserved.
  *
  * Author: Denis Osvald <denis.osvald@sartura.hr>
  *

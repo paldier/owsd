@@ -3,7 +3,7 @@
 #define WSUBUS_CLIENT_H
 
 /*
- * Copyright (C) 2016 Inteno Broadband Technology AB. All rights reserved.
+ * Copyright (C) 2018 iopsys Software Solutions AB. All rights reserved.
  *
  * Authors:
  *	Reidar

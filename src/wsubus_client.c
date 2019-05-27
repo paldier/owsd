@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Inteno Broadband Technology AB. All rights reserved.
+ * Copyright (C) 2018 iopsys Software Solutions AB. All rights reserved.
  *
  * Author: Reidar Cederqvist <reidar.cederqvist@gmail.com>
  * Author: Ionut-Alex Oprea <ionutalexoprea@gmail.com>

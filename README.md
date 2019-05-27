@@ -2,7 +2,7 @@
 
 ## Overview
 - uses web sockets to accept RPC calls in JSON-RPC
-- intended as web back-end for Inteno JUCI Web UI on OpenWrt based platform
+- intended as web back-end for JUCI Web UI on OpenWrt based platform
 - RPCs are routed to local IPC bus objects on ubus and/or D-Bus (_beta_)
 - supports receiving events in addition to issuing method calls
 - uses ubus session object to perform access control
