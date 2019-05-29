@@ -60,6 +60,12 @@ if (WSD_HAVE_UBUS)
 			src/wsubus_client.c
 			)
 	endif()
+	if (OWSD_UPROXYD)
+		set(UPROXYD_LINK ${LIBUBOX_LIBRARIES} ${JSON_LIBRARIES} ${UBUS_LIBRARIES})
+		set(UPROXYD_SOURCES
+			src/uproxyd.c
+			)
+	endif()
 endif()
 
 if (WSD_HAVE_DBUS)
@@ -85,6 +91,11 @@ list(APPEND WSD_INCLUDE ${CMAKE_BINARY_DIR})
 
 add_executable(owsd ${SOURCES})
 target_link_libraries(owsd ${WSD_LINK})
+if (OWSD_UPROXYD)
+	add_executable(uproxyd ${UPROXYD_SOURCES})
+	target_link_libraries(uproxyd ${UPROXYD_LINK})
+endif()
 include_directories(${WSD_INCLUDE})
 
 install(TARGETS owsd RUNTIME DESTINATION bin)
+install(TARGETS uproxyd RUNTIME DESTINATION bin)
