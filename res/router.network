@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# This script will publish the ubus object router.network and its method 'hosts', providing clients hostnames, MACs, IPs and connection status. Reads from /tmp/hosts.json.
+# This is script is used to simulate router.network hosts functionality required by uproxyd
+
+HOSTFILE="/tmp/hosts.json"
+
+case "$1" in
+	list)
+		echo '{ "hosts" : {} }'
+	;;
+	call)
+		case "$2" in
+			hosts)
+				if [ -s $HOSTFILE ]; then
+					cat $HOSTFILE
+				else
+					echo '{ "hosts": [] }'
+				fi
+			;;
+		esac
+	;;
+esac
+

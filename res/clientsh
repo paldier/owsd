@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# This script will prepare /tmp/hosts.json with MACs, IPs, hostnames (read from /tmp/dhcp.leases) and the clients connection status.
+# This is script is used to simulate router.network hosts functionality required by uproxyd
+
+. /usr/share/libubox/jshn.sh
+
+LEASEFILE="$(uci -q get dhcp.@dnsmasq[0].leasefile)"
+LEASEFILE="${LEASEFILE:-/tmp/dhcp.leases}"
+HOSTFILE="/tmp/hosts.json"
+OLDMD5=""
+NEWMD5=""
+OLDCON=0
+NEWCON=0
+
+while true; do
+	NEWCON=0
+	json_init
+	json_add_array hosts
+	hosts=$(cat "$LEASEFILE")
+	IFS=$'\n'
+	for line in $hosts
+	do
+		macaddr=$(echo $line | awk '{print$2}')
+		ipaddr=$(echo $line | awk '{print$3}')
+		hostname=$(echo $line | awk '{print$4}')
+		connected=0
+		ping -q -c 1 -w 1 "$ipaddr" 2>&1 >/dev/null && connected=1 && NEWCON=$((NEWCON+1))
+		json_add_object
+		json_add_string hostname "$hostname"
+		json_add_string ipaddr "$ipaddr"
+		json_add_string macaddr "$macaddr"
+		json_add_boolean connected "$connected"
+		json_select ..
+	done
+	json_select ..
+	json_dump > "$HOSTFILE"
+
+	NEWMD5="$(md5sum "$HOSTFILE" | awk '{print$1}')"
+
+	if [ "$NEWMD5" != "$OLDMD5" ]; then
+		[ $NEWCON -ge $OLDCON ] && action="connect" || action="disconnect"
+		ubus send client "{\"action\":\"$action\"}"
+	fi
+
+	OLDMD5="$NEWMD5"
+	OLDCON=$NEWCON
+
+	sleep 5
+done
+
