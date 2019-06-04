@@ -71,3 +71,15 @@ The `config.js` file specifies the text file containing test input and expected 
 ## Other resources: libwebsockets documentation
 
 https://libwebsockets.org/lws-api-doc-master/html/md_README.coding.html
+
+# Ubus Proxy Daemon
+
+## Overview
+- Automates detection of UBUS-X devices in the network
+- Depends on `client` events published on ubus and the method `router.network hosts`
+- Uses libubox and libubus.
+
+## Tests
+In iopsysWRT, `client` events and `router.network hosts` are published by the `questd` daemon. In the `res/` subdirectory are two scripts (`clientsh` and `router.network`) which will simulate the functionality of `router.network hosts`, allowing `uproxyd` to be used without `questd` on the system.
+
+To test ubus-x, run `clientsh` in the background, place `router.network` in `/usr/libexec/rpcd/` and issue `/etc/init.d/rpcd restart`. Rpcd should now publish the object `router.network` and owsd/uproxyd can be restarted through `/etc/init.d/owsd restart`. You should now be able to access remote objects through ubus.
