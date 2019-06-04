@@ -312,7 +312,7 @@ out_str:
 static void add_all_clients(struct uloop_timeout *timer)
 {
 	uint32_t id;
-	int ret;
+	int ret, timeout = 30;
 	struct blob_buf bb = {};
 
 	ubus_lookup_id(ctx, "router.network", &id);
@@ -326,11 +326,13 @@ static void add_all_clients(struct uloop_timeout *timer)
 			NULL, UBUS_CALL_TIMEOUT);
 	blob_buf_free(&bb);
 
-	if (ret)
+	if (ret) {
 		fprintf(stderr, "Couln't get hosts from router.network hosts ret = %d\n", ret);
+		timeout = 5;
+	}
 
 retry:
-	uloop_timeout_set(timer, 5000 /*msecs*/);
+	uloop_timeout_set(timer, timeout * 1000);
 	uloop_timeout_add(timer);
 }
 
