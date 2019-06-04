@@ -34,7 +34,7 @@
 #define OWSD_METHOD_NAME_ADD "add"
 #define OWSD_METHOD_NAME_REMOVE "remove"
 #define OWSD_METHOD_NAME_LIST "list"
-#define CLIENT_EVENT_NAME "hosts"
+#define CLIENT_EVENT_NAME "client"
 #define UBUS_CALL_TIMEOUT (2 * 1000)
 #define CLEAN_TIMEOUT (UBUS_CALL_TIMEOUT + (3 * 1000))
 #define MAX_RECONNECT_COUNT 10
