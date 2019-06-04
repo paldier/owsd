@@ -326,11 +326,8 @@ static void add_all_clients(struct uloop_timeout *timer)
 			NULL, UBUS_CALL_TIMEOUT);
 	blob_buf_free(&bb);
 
-	if (ret) {
+	if (ret)
 		fprintf(stderr, "Couln't get hosts from router.network hosts ret = %d\n", ret);
-		goto retry;
-	}
-	return;
 
 retry:
 	uloop_timeout_set(timer, 5000 /*msecs*/);
