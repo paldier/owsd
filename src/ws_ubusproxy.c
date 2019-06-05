@@ -52,6 +52,26 @@ struct lws_protocols ws_ubusproxy_proto = {
 	NULL, /* - user pointer */
 };
 
+static int ws_ubusproxy_client_teardown(struct lws *wsi, struct wsu_peer *peer)
+{
+	int role = peer->role;
+
+	lwsl_notice(WSUBUS_PROTO_NAME ": closed\n");
+	wsu_peer_deinit(wsi, peer);
+
+	if (role == WSUBUS_ROLE_CLIENT)
+		return -1;
+
+	if (wsubus_client_should_destroy(wsi)) {
+		wsubus_client_destroy(wsi);
+	} else {
+		wsubus_client_set_state(wsi, CONNECTION_STATE_DISCONNECTED);
+		wsubus_client_reconnect(wsi);
+	}
+
+	return 0;
+}
+
 static int ws_ubusproxy_cb(struct lws *wsi,
 		enum lws_callback_reasons reason,
 		void *user,
@@ -62,8 +82,11 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 
 	switch (reason) {
 	case LWS_CALLBACK_CLIENT_WRITEABLE:
-		if (wsubus_client_should_destroy(wsi))
-			return -1;
+		if (wsubus_client_should_destroy(wsi)) {
+			ws_ubusproxy_client_teardown(wsi, peer);
+			break;
+			//return -1;
+		}
 			/* returning -1 from here initialises a tear down of the connection,
 			 * and LWS_CALLBACK_CLOSED will be called */
 
@@ -72,19 +95,7 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 
 		/* client is leaving */
 	case LWS_CALLBACK_CLOSED:
-		lwsl_notice(WSUBUS_PROTO_NAME ": closed\n");
-		int role = peer->role;
-		wsu_peer_deinit(wsi, peer);
-
-		if (role == WSUBUS_ROLE_CLIENT)
-			break;
-
-		if (wsubus_client_should_destroy(wsi)) {
-			wsubus_client_destroy(wsi);
-		} else {
-			wsubus_client_set_state(wsi, CONNECTION_STATE_DISCONNECTED);
-			wsubus_client_reconnect(wsi);
-		}
+		ws_ubusproxy_client_teardown(wsi, peer);
 		break;
 	case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
 		lwsl_err("CCE ERROR, reason %s\n", in ? (char *)in : "");
