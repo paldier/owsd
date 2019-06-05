@@ -86,7 +86,16 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 			wsubus_client_reconnect(wsi);
 		}
 		break;
-
+	case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
+		lwsl_err("CCE ERROR, reason %s\n", in ? (char *)in : "");
+		if (wsubus_client_should_destroy(wsi)) {
+			wsubus_client_destroy(wsi);
+		} else {
+			wsubus_client_set_state(wsi, CONNECTION_STATE_DISCONNECTED);
+			wsubus_client_connect_retry(wsi);
+		}
+		break;
+	}
 	case LWS_CALLBACK_WS_PEER_INITIATED_CLOSE:
 		lwsl_notice(WSUBUS_PROTO_NAME ": peer closing\n");
 		return 0;
