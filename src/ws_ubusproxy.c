@@ -111,10 +111,20 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		lwsl_notice(WSUBUS_PROTO_NAME ": peer closing\n");
 		return 0;
 
-		/* proto init-destroy */
-	case LWS_CALLBACK_PROTOCOL_INIT:
-		lwsl_info(WSUBUS_PROTO_NAME ": create proto\n");
+		// proto init-destroy
+	case LWS_CALLBACK_PROTOCOL_INIT: {
+		struct lws_vhost *vhost = lws_get_vhost(wsi);
+		if (!vhost) {
+			lwsl_err(" ERROR, no vhost found\n");
+			break;
+		}
+
+		int port = lws_get_vhost_port(vhost);
+		if (port == CONTEXT_PORT_NO_LISTEN)
+			wsubus_client_connect_all();
+
 		break;
+	}
 	case LWS_CALLBACK_PROTOCOL_DESTROY:
 		lwsl_info(WSUBUS_PROTO_NAME ": destroy proto\n");
 		break;

@@ -213,35 +213,7 @@ static int ws_http_cb(struct lws *wsi,
 
 		return 0;
 	}
-
-#if WSD_HAVE_UBUSPROXY
-	case LWS_CALLBACK_PROTOCOL_INIT: {
-		lwsl_notice("%s init\n", lws_get_protocol(wsi)->name);
-		struct lws_vhost *vhost = lws_get_vhost(wsi);
-		if (!vhost) {
-			lwsl_err(" ERROR, no vhost found\n");
-			break;
-		}
-		int port = lws_get_vhost_port(vhost);
-		if ( port == CONTEXT_PORT_NO_LISTEN) {
-			lwsl_notice("%s initializing clients\n", lws_get_protocol(wsi)->name);
-			wsubus_client_connect_all();
-		}
-		break;
-	}
-	case LWS_CALLBACK_CLIENT_CONNECTION_ERROR: {
-		lwsl_err("CCE ERROR, reason %s\n", in ? (char *)in : "");
-		if (wsubus_client_should_destroy(wsi)) {
-			wsubus_client_destroy(wsi);
-		} else {
-			wsubus_client_set_state(wsi, CONNECTION_STATE_DISCONNECTED);
-			wsubus_client_connect_retry(wsi);
-		}
-		break;
-	}
-#endif
-
-		/* deny websocket clients with default (no) subprotocol */
+		// deny websocket clients with default (no) subprotocol
 	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		lwsl_notice("client handshaking without subproto - denying\n");
 		return 1;
