@@ -156,6 +156,33 @@ static int calculate_total_req_max(void)
 	return total_reqs;
 }
 
+static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation_info *vh_info, struct vh_context *vh_ctx, const char *name) {
+	struct lws_vhost *vh;
+
+	vh_info->vhost_name = name;
+	vh = lws_create_vhost(lws_ctx, vh_info);
+	if (!vh) {
+		lwsl_err("lws_create_vhost error\n");
+		return -1;
+	}
+
+	// per-vhost storage is lws-allocated
+	/* allocate private memory for one pointer */
+	unsigned long *pvh_context = lws_protocol_vh_priv_zalloc(vh,
+			&vh_info->protocols[1] /* ubus */, sizeof(unsigned long));
+
+	/* re-assign the private pointer to point to the vh_ctx we have prepared */
+	*pvh_context = vh_ctx;
+	lwsl_notice("%s %d set pvh_context to %p, nmae %s, vh_ctx to %p, name vh_ctx to %s\n", __func__, __LINE__, *pvh_context, ((struct vh_context *)*pvh_context)->name, vh_ctx, vh_ctx->name);
+	/* increment refcounter as several vhosts may depend on same vh_ctx */
+	vh_ctx->refcount++;
+
+	lwsl_debug("created vhost %s for port %d with %s , c %s k %s\n", vh_info->vhost_name, vh_info->port, (vh_info->options & LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT) ? "ssl" : "no ssl",
+			   vh_info->ssl_cert_filepath, vh_info->ssl_private_key_filepath);
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int rc = 0;
@@ -552,24 +579,19 @@ ssl:
 		if (c->vh_info.ssl_ca_filepath)
 			c->vh_info.options |= LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED | LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT;
 
-		lwsl_debug("create vhost for port %d with %s , c %s k %s\n", c->vh_info.port, (c->vh_info.options & LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT) ? "ssl" : "no ssl",
-				c->vh_info.ssl_cert_filepath, c->vh_info.ssl_private_key_filepath);
+		/* create 'nameless' vhost for port/interface */
+		create_vhost(lws_ctx, &c->vh_info, &c->vh_ctx, "default");
 
-		struct lws_vhost *vh = lws_create_vhost(lws_ctx, &c->vh_info);
+		/* create one vhost for each origin */
+		struct str_list *origin;
+		list_for_each_entry(origin, &c->vh_ctx.origins, list) {
+			/* static memory so don't bother about adding it as a vhinfo_list to clean it */
+			struct lws_context_creation_info creation_ctx;
 
-		if (!vh) {
-			lwsl_err("lws_create_vhost error\n");
-			continue;
+			memcpy(&creation_ctx, &c->vh_info, sizeof(struct lws_context_creation_info));
+			if (create_vhost(lws_ctx, &creation_ctx, &c->vh_ctx, origin->str))
+				continue;
 		}
-
-		/* per-vhost storage is lws-allocated,
-		 * allocate private memory for one pointer
-		 */
-		unsigned long *pvh_context = lws_protocol_vh_priv_zalloc(vh,
-				&c->vh_info.protocols[1] /* ubus */, sizeof(unsigned long));
-
-		/* re-assign the private pointer to point to the vh_ctx we have prepared */
-		*pvh_context = (unsigned long) &c->vh_ctx;
 	}
 
 #if WSD_HAVE_UBUSPROXY
