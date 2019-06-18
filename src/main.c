@@ -156,10 +156,18 @@ static int calculate_total_req_max(void)
 	return total_reqs;
 }
 
+int contains_substring(const char *a, const char *b)
+{
+   if(strncmp(a, b, strlen(b)) == 0) return strlen(b);
+   return 0;
+}
+
 static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation_info *vh_info, struct vh_context *vh_ctx, const char *name) {
 	struct lws_vhost *vh;
 
-	vh_info->vhost_name = name;
+	int offset = contains_substring(name, "http://") | contains_substring(name, "https://");
+
+	vh_info->vhost_name = name + offset;
 	vh = lws_create_vhost(lws_ctx, vh_info);
 	if (!vh) {
 		lwsl_err("lws_create_vhost error\n");
@@ -585,11 +593,10 @@ ssl:
 		/* create one vhost for each origin */
 		struct str_list *origin;
 		list_for_each_entry(origin, &c->vh_ctx.origins, list) {
-			/* static memory so don't bother about adding it as a vhinfo_list to clean it */
-			struct lws_context_creation_info creation_ctx;
+			struct lws_context_creation_info *creation_ctx = calloc(1, sizeof(struct lws_context_creation_info));
 
-			memcpy(&creation_ctx, &c->vh_info, sizeof(struct lws_context_creation_info));
-			if (create_vhost(lws_ctx, &creation_ctx, &c->vh_ctx, origin->str))
+			memcpy(creation_ctx, &c->vh_info, sizeof(struct lws_context_creation_info));
+			if (create_vhost(lws_ctx, creation_ctx, &c->vh_ctx, origin->str))
 				continue;
 		}
 	}
