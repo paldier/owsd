@@ -167,7 +167,7 @@ static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation
 
 	int offset = contains_substring(name, "http://") | contains_substring(name, "https://");
 
-	vh_info->vhost_name = (strncmp(name, "*", 2) ? name + offset : vh_info->iface);
+	vh_info->vhost_name = name + offset;
 	vh = lws_create_vhost(lws_ctx, vh_info);
 	if (!vh) {
 		lwsl_err("lws_create_vhost error\n");
