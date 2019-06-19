@@ -114,7 +114,7 @@ static int wsubus_filter(struct lws *wsi)
 				lws_get_protocol(wsi)))) {
 		lwsl_err("no list of origins\n");
 		rc = -4;
-	} else if (!origin_allowed(&vc->origins, origin)) {
+	} else if (vc->restrict_origins && !origin_allowed(&vc->origins, origin)) {
 		lwsl_err("origin %s not allowed\n", origin);
 		rc = -5;
 	}

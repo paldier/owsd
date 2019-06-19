@@ -29,6 +29,7 @@ set(WSD_USER_BLACKLIST_OLD ON CACHE BOOL "Support old way of limiting user to sp
 
 set(SOURCES
 	src/main.c
+	src/config.c
 	src/ws_http.c
 	src/ws_http_serve.c
 	src/wsubus.c

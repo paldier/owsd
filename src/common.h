@@ -51,6 +51,9 @@ struct vh_context {
 	struct list_head origins;
 	struct list_head users;
 	char *name;
+	bool restrict_origins;
+
+	int refcount; /* several vhosts may link to same context */
 };
 struct str_list {
 	struct list_head list;

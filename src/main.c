@@ -17,14 +17,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA
  */
-#include "common.h"
-
-#include "ws_http.h"
-#include "wsubus.h"
-#include "wsubus_client.h"
-#include "rpc.h"
-#include "ubusx_acl.h"
-
 #if WSD_HAVE_DBUS
 #include "dbus-io.h"
 #include <dbus/dbus.h>
@@ -40,6 +32,15 @@
 #include <locale.h>
 #include <sys/resource.h>
 
+#include "common.h"
+
+#include "ws_http.h"
+#include "wsubus.h"
+#include "wsubus_client.h"
+#include "rpc.h"
+#include "ubusx_acl.h"
+#include "config.h"
+
 #ifndef WSD_DEF_UBUS_PATH
 #define WSD_DEF_UBUS_PATH "/var/run/ubus.sock"
 #endif
@@ -51,13 +52,6 @@
 #ifndef WSD_DEF_WWW_MAXAGE
 #define WSD_DEF_WWW_MAXAGE 0
 #endif
-
-/* list of per-vhost creation_info structs, with custom per-vhost storage */
-struct vhinfo_list {
-	struct lws_context_creation_info vh_info;
-	struct vhinfo_list *next;
-	struct vh_context vh_ctx;
-};
 
 struct prog_context global;
 
@@ -71,6 +65,7 @@ static void usage(char *name)
 			"  -t <www_maxage>  enable HTTP caching with specified max_age in seconds\n"
 			"  -r <from>:<to>   HTTP path redirect pair\n"
 			"  -m <from>:<to>   CGI mount point\n"
+			"  -f <cfg_path>    File path to json config file\n"
 #if WSD_HAVE_UBUSPROXY
 			"  -U [<path>] ...  Enable WS ubus proxying [for ubus path]\n"
 			"  -F [<prefix>]    Ubusx remote objects prefix, ip or mac [default: ip]\n"
@@ -90,6 +85,7 @@ static void usage(char *name)
 			"  -i <interface>   interface to bind to (will create new vhost\n"
 			"                   if interface already specified for this port) \n"
 			"  -o <origin> ...  origin url address to whitelist\n"
+			"  -O               disable owsd based url origins restriction\n"
 			"  -u <user> ...    restrict login to this rpcd user\n"
 #ifdef LWS_WITH_IPV6
 			"  -6               enable IPv6, repeat to disable IPv4 [off]\n"
@@ -132,45 +128,16 @@ static bool install_handler(int signum, void (*handler)(int))
 	return true;
 }
 
-static int new_vhinfo_list(struct vhinfo_list **currvh)
-{
-	int rc = 0;
-
-	struct vhinfo_list *newvh = malloc(sizeof *newvh);
-	if (!newvh) {
-		lwsl_err("OOM vhinfo init\n");
-		rc = -1;
-		goto error;
-	}
-	*newvh = (struct vhinfo_list){{0}};
-	INIT_LIST_HEAD(&newvh->vh_ctx.origins);
-	INIT_LIST_HEAD(&newvh->vh_ctx.users);
-	newvh->vh_ctx.name = "";
-	newvh->vh_info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
-
-	/* add this listening vhost into our list */
-	newvh->next = *currvh;
-	*currvh = newvh;
-error:
-	return rc;
-}
-
 int main(int argc, char *argv[])
 {
 	int rc = 0;
-
-#if WSD_HAVE_UBUS
-	const char *ubus_sock_path = WSD_DEF_UBUS_PATH;
-#endif
-	const char *www_dirpath = WSD_DEF_WWW_PATH;
-	int www_maxage = WSD_DEF_WWW_MAXAGE;
-	char *redir_from = NULL;
-	char *redir_to = NULL;
-	char *cgi_from = NULL;
-	char *cgi_to = NULL;
-	bool any_ssl = false;
-
+	struct global_config global_cfg = {0};
+	struct json_object *json_cfg = NULL;
 	struct vhinfo_list *currvh = NULL;
+
+	global_cfg.www_dirpath = WSD_DEF_WWW_PATH;
+	global_cfg.www_maxage = WSD_DEF_WWW_MAXAGE;
+	global_cfg.ubus_sock_path = WSD_DEF_UBUS_PATH;
 
 	int c;
 	while ((c = getopt(argc, argv,
@@ -178,7 +145,7 @@ int main(int argc, char *argv[])
 #if WSD_HAVE_UBUS
 					"s:"
 #endif /* WSD_HAVE_UBUSPROXY */
-					"w:t:r:m:h"
+					"w:t:r:m:f:"
 
 #if WSD_HAVE_UBUSPROXY
 					"U::"
@@ -191,7 +158,7 @@ int main(int argc, char *argv[])
 #endif /* LWS_OPENSSL_SUPPORT */
 #endif /* WSD_HAVE_UBUSPROXY */
 					/* per-vhost */
-					"p:i:o:L:u:"
+					"p:i:o:OL:u:"
 #ifdef LWS_WITH_IPV6
 					"6"
 #endif /* LWS_WITH_IPV6 */
@@ -203,11 +170,11 @@ int main(int argc, char *argv[])
 		switch (c) {
 #if WSD_HAVE_UBUS
 		case 's':
-			ubus_sock_path = optarg;
+			global_cfg.ubus_sock_path = optarg;
 			break;
 #endif /* WSD_HAVE_UBUS */
 		case 'w':
-			www_dirpath = optarg;
+			global_cfg.www_dirpath = optarg;
 			break;
 		case 't': {
 			char *error;
@@ -216,33 +183,36 @@ int main(int argc, char *argv[])
 				lwsl_err("Invalid maxage '%s' specified\n", optarg);
 				goto error;
 			}
-			www_maxage = secs;
+			global_cfg.www_maxage = secs;
 			break;
 		}
 		case 'r':
-			redir_to = strchr(optarg, ':');
-			if (!redir_to) {
+			global_cfg.redir_to = strchr(optarg, ':');
+			if (!global_cfg.redir_to) {
 				lwsl_err("invalid redirect pair specified");
 				goto error;
 			}
-			*redir_to++ = '\0';
-			redir_from = optarg;
+			*global_cfg.redir_to++ = '\0';
+			global_cfg.redir_from = optarg;
 			break;
 		case 'm':
-			cgi_to = strchr(optarg, ':');
-			if (!cgi_to) {
+			global_cfg.cgi_to = strchr(optarg, ':');
+			if (!global_cfg.cgi_to) {
 				lwsl_err("invalid cgi origin specified");
 				goto error;
 			}
-			*cgi_to++ = '\0';
-			cgi_from = optarg;
+			*global_cfg.cgi_to++ = '\0';
+			global_cfg.cgi_from = optarg;
+			break;
+		case 'f':
+			json_cfg = parse_json_cfg(optarg, &currvh, &global_cfg);
 			break;
 
 			/* client */
 #if WSD_HAVE_UBUSPROXY
 		case 'U':
 			lwsl_notice("PARSING OPTION U\n");
-			any_ssl = true;
+			global_cfg.any_ssl = true;
 			wsubus_client_enable_proxy();
 			if (optarg)
 				wsubus_client_path_pattern_add(optarg);
@@ -266,7 +236,7 @@ int main(int argc, char *argv[])
 				lwsl_err("only wss protocol for WS proxy client\n");
 				goto error;
 			}
-			any_ssl = true;
+			global_cfg.any_ssl = true;
 			wsubus_client_create(addr, port, path, CLIENT_FROM_PROGARG);
 			break;
 		}
@@ -331,6 +301,10 @@ int main(int argc, char *argv[])
 			list_add_tail(&str->list, &currvh->vh_ctx.origins);
 			break;
 		}
+		case 'O': {
+			currvh->vh_ctx.restrict_origins = 0;
+			break;
+		}
 		case 'u': {
 			struct str_list *str = malloc(sizeof *str);
 			if (!str)
@@ -363,7 +337,7 @@ int main(int argc, char *argv[])
 			goto ssl;
 
 ssl:
-			any_ssl = true;
+			global_cfg.any_ssl = true;
 			currvh->vh_info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
 			break;
 #endif /* LWS_OPENSSL_SUPPORT */
@@ -393,7 +367,7 @@ ssl:
 	/* connect to bus(es) */
 
 #if WSD_HAVE_UBUS
-	struct ubus_context *ubus_ctx = ubus_connect(ubus_sock_path);
+	struct ubus_context *ubus_ctx = ubus_connect(global_cfg.ubus_sock_path);
 	if (!ubus_ctx) {
 		lwsl_err("ubus_connect error\n");
 		rc = 2;
@@ -420,11 +394,11 @@ ssl:
 	}
 #endif
 
-	global.www_path = www_dirpath;
-	global.redir_from = redir_from;
-	global.redir_to = redir_to;
+	global.www_path = global_cfg.www_dirpath;
+	global.redir_from = global_cfg.redir_from;
+	global.redir_to = global_cfg.redir_to;
 
-	lwsl_info("Will serve dir '%s' for HTTP\n", www_dirpath);
+	lwsl_info("Will serve dir '%s' for HTTP\n", global_cfg.www_dirpath);
 
 	/* allocate file descriptor watchers
 	 * typically 1024, so a couple of KiBs just for pointers... */
@@ -446,7 +420,7 @@ ssl:
 	lws_info.uid = -1;
 	lws_info.gid = -1;
 	lws_info.user = &global;
-	lws_info.options = LWS_SERVER_OPTION_EXPLICIT_VHOSTS | (any_ssl ? LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT : 0);
+	lws_info.options = LWS_SERVER_OPTION_EXPLICIT_VHOSTS | (global_cfg.any_ssl ? LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT : 0);
 	lws_info.server_string = "owsd";
 	lws_info.ws_ping_pong_interval = 300;
 
@@ -477,9 +451,9 @@ ssl:
 		"/dev/null", /* anything not-a-dir is ok, so our HTTP code runs and not lws */
 		"index.html"
 	};
-	wwwmount.cache_reusable = !!www_maxage;
-	wwwmount.cache_revalidate = !!www_maxage;
-	wwwmount.cache_max_age = www_maxage;
+	wwwmount.cache_reusable = !!global_cfg.www_maxage;
+	wwwmount.cache_revalidate = !!global_cfg.www_maxage;
+	wwwmount.cache_max_age = global_cfg.www_maxage;
 	wwwmount.mountpoint_len = strlen(wwwmount.mountpoint);
 	wwwmount.origin_protocol = LWSMPRO_FILE;
 
@@ -518,10 +492,10 @@ ssl:
 	};
 	cgimount.mountpoint_len = strlen(cgimount.mountpoint);
 
-	if (cgi_from && cgi_to) {
-		cgimount.mountpoint = cgi_from;
+	if (global_cfg.cgi_from && global_cfg.cgi_to) {
+		cgimount.mountpoint = global_cfg.cgi_from;
 		cgimount.mountpoint_len = strlen(cgimount.mountpoint);
-		cgimount.origin = cgi_to;
+		cgimount.origin = global_cfg.cgi_to;
 	}
 
 	/* create all listening vhosts */
@@ -602,7 +576,9 @@ error_ubus_ufds:
 	dbus_shutdown();
 #endif
 
-error:
+	if (json_cfg)
+		json_object_put(json_cfg);
 
+error:
 	return rc;
 }

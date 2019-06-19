@@ -126,8 +126,6 @@ bool ubusx_acl__allow_object(const char *objname)
 
 bool ubusx_acl__allow_method(const char *objname, const char *methodname)
 {
-	lwsl_notice("%s objname=\"%s\" methodname=\"%s\"\n",
-			__func__, objname, methodname);
 	return true;
 }
 
