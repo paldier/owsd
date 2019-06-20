@@ -93,7 +93,8 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
 
-		/* client is leaving */
+		// client is leaving
+	case LWS_CALLBACK_CLIENT_CLOSED:
 	case LWS_CALLBACK_CLOSED:
 		ws_ubusproxy_client_teardown(wsi, peer);
 		break;
