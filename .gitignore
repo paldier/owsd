@@ -1,4 +1,5 @@
 owsd
+uproxyd
 *.swp
 build/
 bin/
