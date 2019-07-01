@@ -45,13 +45,10 @@ int ubusx_prefix = UBUSX_PREFIX_IP;
 static int wsu_local_stub_handle_call(struct ubus_context *ubus_ctx, struct ubus_object *obj, struct ubus_request_data *req,
 		const char *method, struct blob_attr *args)
 {
-	lwsl_notice("stub %s %s called\n", obj->name, method);
-
 	/* find stub object */
 	struct wsu_local_stub *stub = container_of(obj, struct wsu_local_stub, obj);
-
 	char *args_json = blobmsg_format_json(args, true);
-	json_object *args_jobj = args_json ? json_tokener_parse(args_json) : NULL;
+	struct json_object *args_jobj = args_json ? json_tokener_parse(args_json) : NULL;
 
 	/* extract local name from proxied name */
 	char *local_name = strchr(obj->name, '/')+1;
@@ -59,11 +56,14 @@ static int wsu_local_stub_handle_call(struct ubus_context *ubus_ctx, struct ubus
 	/* create RPC request */
 	char *d = jsonrpc__req_ubuscall(++stub->remote->call_id, wsu_remote_to_peer(stub->remote)->sid, local_name, method, args_jobj);
 
+	lwsl_notice("stub %s %s called\n", obj->name, method);
+
 	free(args_json);
 	json_object_put(args_jobj);
 
 	/* find slot for storing request id */
 	struct wsu_proxied_call *p = wsu_proxied_call_new(stub->remote);
+
 	if (!p) {
 		free(d);
 		lwsl_err("Can't find slot to proxy call, max num calls %d", MAX_PROXIED_CALLS);
@@ -98,6 +98,7 @@ bool wsu_local_stub_is_same_signature(struct wsu_local_stub *stub, json_object *
 		return false;
 
 	const struct ubus_method *m = stub->methods;
+
 	json_object_object_foreach(signature, mname, margs) {
 		if (m->n_policy != json_object_object_length(margs))
 			return false;
@@ -105,6 +106,7 @@ bool wsu_local_stub_is_same_signature(struct wsu_local_stub *stub, json_object *
 			return false;
 
 		const struct blobmsg_policy *b = m->policy;
+
 		json_object_object_foreach(margs, aname, atype) {
 			if (b->type != blobmsg_type_from_str(json_object_get_string(atype)))
 				return false;
@@ -121,7 +123,8 @@ bool wsu_local_stub_is_same_signature(struct wsu_local_stub *stub, json_object *
 /* {{{ */
 
 /* proxied_name functions are used for naming the remote events when replaying them locally
-and for naming the local objects */
+ * and for naming the local objects
+ */
 
 /**
  * \brief tells how much space to allocate for the proxied name based on the original name
@@ -144,7 +147,7 @@ static size_t proxied_name_size(const struct wsu_remote_bus *remote, const char 
 static void proxied_name_fill(char *proxied_name, size_t proxied_name_sz, const struct wsu_remote_bus *remote, const char *name)
 {
 	lws_get_peer_simple(remote->wsi, proxied_name, proxied_name_sz);
-	if(strncmp(proxied_name, "::ffff:", 7) == 0)
+	if (strncmp(proxied_name, "::ffff:", 7) == 0)
 		memmove(proxied_name, proxied_name + 7, strlen(proxied_name) - 6);
 	strncat(proxied_name, "/", proxied_name_sz - strlen(proxied_name));
 	strncat(proxied_name, name, proxied_name_sz - strlen(proxied_name));
@@ -230,7 +233,7 @@ out:
 
 /* }}} */
 
-struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, const char *object, json_object *signature)
+struct wsu_local_stub *wsu_local_stub_create(struct wsu_remote_bus *remote, const char *object, json_object *signature)
 {
 	size_t num_methods = json_object_object_length(signature);
 	size_t num_args = 0;
@@ -243,11 +246,13 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 	}
 
 	/* TODO validate signature jobj somewhere before this is called, we assume valid json
-	 * or inside here? */
+	 * or inside here?
+	 */
 
 	/* allocate space for stub info + method info, and for args info separately */
-	struct wsu_local_stub *stub = calloc(1, sizeof *stub + num_methods * sizeof stub->methods[0]);
-	stub->method_args = calloc(num_args, sizeof stub->method_args[0]);
+	struct wsu_local_stub *stub = calloc(1, sizeof(*stub) + num_methods * sizeof(stub->methods[0]));
+
+	stub->method_args = calloc(num_args, sizeof(stub->method_args[0]));
 
 	/* fill in fields */
 	stub->remote = remote;
@@ -259,6 +264,7 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 	/* deep copy all the argument names */
 	struct ubus_method *m = stub->methods;
 	struct blobmsg_policy *b = stub->method_args;
+
 	json_object_object_foreach(signature, mname, margs) {
 		m->name = strdup(mname);
 		m->n_policy = json_object_object_length(margs);
@@ -276,6 +282,7 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 	/* name the remote object */
 	size_t proxied_objname_sz = proxied_name_size(remote, object);
 	char *proxied_objname = malloc(proxied_objname_sz);
+
 	proxied_name_fill(proxied_objname, proxied_objname_sz, remote, object);
 	proxied_name_mac_prefix(proxied_objname, proxied_objname_sz);
 
@@ -292,6 +299,7 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 
 	/* register the object on local bus */
 	struct prog_context *global = lws_context_user(lws_get_context(stub->remote->wsi));
+
 	ubus_add_object(global->ubus_ctx, &stub->obj);
 
 	return stub;
@@ -301,6 +309,7 @@ void wsu_local_stub_destroy(struct wsu_local_stub *stub)
 {
 	/* unregister object from bus */
 	struct prog_context *global = lws_context_user(lws_get_context(stub->remote->wsi));
+
 	ubus_remove_object(global->ubus_ctx, &stub->obj);
 
 	/* free up everything we deep-copied */
@@ -310,16 +319,16 @@ void wsu_local_stub_destroy(struct wsu_local_stub *stub)
 		for (struct blobmsg_policy *b = (struct blobmsg_policy *)m->policy;
 				b < m->policy + m->n_policy;
 				++b) {
-			free((char*)b->name);
+			free((char *)b->name);
 		}
-		free((char*)m->name);
+		free((char *)m->name);
 	}
 
 	/* remove from collection */
 	avl_delete(&stub->remote->stubs, &stub->avl);
 
 	/* free allocated memory */
-	free((char*)stub->obj_type.name);
+	free((char *)stub->obj_type.name);
 	free(stub->method_args);
 	free(stub);
 }
@@ -328,11 +337,13 @@ struct wsu_local_proxied_event *wsu_local_proxied_event_create(struct wsu_remote
 {
 	/* name the event */
 	size_t proxied_eventname_sz = proxied_name_size(remote, event_name);
-	struct wsu_local_proxied_event *event = calloc(1, sizeof *event + proxied_eventname_sz);
+	struct wsu_local_proxied_event *event = calloc(1, sizeof(*event) + proxied_eventname_sz);
+
 	proxied_name_fill(event->name, proxied_eventname_sz, remote, event_name);
 	/* if the ubusx events need to have the mac prefix instead of ip prefix,
 	 * uncomment the following line:
-	 * proxied_name_mac_prefix(event->name, proxied_eventname_sz); */
+	 * proxied_name_mac_prefix(event->name, proxied_eventname_sz);
+	 */
 
 	/* copy the event's data */
 	blob_buf_init(&event->b, 0);

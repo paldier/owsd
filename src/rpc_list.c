@@ -43,29 +43,28 @@
  * \brief fills in allocated struct
  */
 static int ubusrpc_blob_list_parse_(struct ubusrpc_blob_list *ubusrpc, struct blob_attr *blob)
-{
+{	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
+		{ .type = BLOBMSG_TYPE_UNSPEC }, /* session ID, IGNORED to keep compat */
+		{ .type = BLOBMSG_TYPE_STRING }  /* ubus-object pattern */
+	};
+	enum { __RPC_U_MAX = (sizeof(rpc_ubus_param_policy) / sizeof(rpc_ubus_param_policy[0])) };
+	struct blob_attr *tb[__RPC_U_MAX];
+
 	if (blob_id(blob) != BLOBMSG_TYPE_ARRAY) {
 		ubusrpc->src_blob = NULL;
 		ubusrpc->pattern = NULL;
 		return 0;
 	}
-
-	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
-		[0] = { .type = BLOBMSG_TYPE_UNSPEC }, /* session ID, IGNORED to keep compat */
-		[1] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-object pattern */
-	};
-	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
-	struct blob_attr *tb[__RPC_U_MAX];
-
 	struct blob_attr *dup_blob = blob_memdup(blob);
-	if (!dup_blob) {
+
+	if (!dup_blob)
 		return -100;
-	}
 
 	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
 	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	 * comes from another blob's table... here and so do we) */
-	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(dup_blob), (unsigned)blobmsg_len(dup_blob));
+	 * comes from another blob's table... here and so do we)
+	 */
+	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(dup_blob), (unsigned int)blobmsg_len(dup_blob));
 
 	if (!tb[1]) {
 		free(dup_blob);
@@ -79,9 +78,10 @@ static int ubusrpc_blob_list_parse_(struct ubusrpc_blob_list *ubusrpc, struct bl
 	return 0;
 }
 
-struct ubusrpc_blob* ubusrpc_blob_list_parse(struct blob_attr *blob)
+struct ubusrpc_blob *ubusrpc_blob_list_parse(struct blob_attr *blob)
 {
-	struct ubusrpc_blob_list *ubusrpc = calloc(1, sizeof *ubusrpc);
+	struct ubusrpc_blob_list *ubusrpc = calloc(1, sizeof(*ubusrpc));
+
 	if (!ubusrpc)
 		return NULL;
 
@@ -97,7 +97,8 @@ int ubusrpc_handle_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc, struct bl
 {
 	/* in short:
 	 * ubus list can only be done synchronously, so if we have ubus, then we do it first.
-	 * After that create a dbus list and complete it asynchronously, appending to the results buffer */
+	 * After that create a dbus list and complete it asynchronously, appending to the results buffer
+	 */
 
 
 #if WSD_HAVE_DBUS

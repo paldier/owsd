@@ -90,7 +90,7 @@ const char *json_get_string(struct json_object *object, const char *key)
 	return json_object_get_string(value);
 }
 
-static int init_ubus()
+static int init_ubus(void)
 {
 	int ret = 0;
 
@@ -150,7 +150,7 @@ static void owsd_remove_client(int index, const char *ip)
 			NULL, NULL, UBUS_CALL_TIMEOUT);
 
 	if (ret) {
-		id= 0;
+		id = 0;
 		fprintf(stderr, "Couldn't invoke "OWSD_OBJECT_NAME" "
 				OWSD_METHOD_NAME_REMOVE" for index %d\n", index);
 	}
@@ -191,9 +191,8 @@ static void receive_event_cb(struct ubus_context *ctx,
 
 	if (action && strcmp(action, "connect") == 0)
 		owsd_add_client(ipaddr);
-	else if (action && strcmp(action, "disconnect") == 0) {
+	else if (action && strcmp(action, "disconnect") == 0)
 		owsd_remove_client(0, ipaddr);
-	}
 
 out_json:
 	json_object_put(json_msg);
@@ -283,7 +282,7 @@ static void add_all_clients_cb(struct ubus_request *req, int type, struct blob_a
 	if (!json_msg)
 		goto out_str;
 
-	if(!json_object_is_type(json_msg, json_type_object))
+	if (!json_object_is_type(json_msg, json_type_object))
 		goto out_json;
 
 	json_object_object_get_ex(json_msg, "hosts", &hosts);

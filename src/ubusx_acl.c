@@ -114,7 +114,7 @@ out:
 
 bool ubusx_acl__allow_object(const char *objname)
 {
-	lwsl_notice("%s objname=\"%s\"\n", __func__, objname);
+	/* lwsl_notice("%s objname=\"%s\"\n", __func__, objname); */
 
 	if (avl_is_empty(&uxacl_objects))
 		return true;
@@ -126,6 +126,9 @@ bool ubusx_acl__allow_object(const char *objname)
 
 bool ubusx_acl__allow_method(const char *objname, const char *methodname)
 {
+	/* lwsl_notice("%s objname=\"%s\" methodname=\"%s\"\n",
+	 *	__func__, objname, methodname);
+	 */
 	return true;
 }
 

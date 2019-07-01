@@ -84,7 +84,6 @@ out:
 static int handle_list_ubus(struct ws_request_base *req, struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct blob_attr *id, bool output)
 {
 	struct ubusrpc_blob_list *ubusrpc = container_of(ubusrpc_, struct ubusrpc_blob_list, _base);
-	char *response_str;
 	int ret = 0;
 	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
@@ -93,6 +92,8 @@ static int handle_list_ubus(struct ws_request_base *req, struct lws *wsi, struct
 	ret = ubus_lookup(prog->ubus_ctx, ubusrpc->pattern, ubus_lookup_cb, req);
 
 	if (output) {
+		char *response_str;
+
 		if (ret) {
 			response_str = jsonrpc__resp_ubus(id, ret ? ret : -1, NULL);
 		} else {

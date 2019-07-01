@@ -25,7 +25,8 @@
 #include "util_jsonrpc.h"
 
 /* FIXME RPCs should add themselves to list via macro / constructor magic,
- * instead of explicitly listing them to add them in list of supported RPCs */
+ * instead of explicitly listing them to add them in list of supported RPCs
+ */
 #include "rpc_call.h"
 #include "rpc_list.h"
 #include "rpc_sub.h"
@@ -42,13 +43,13 @@ int jsonrpc_blob_req_parse(struct jsonrpc_blob_req *req, const struct blob_attr 
 		[RPC_METHOD]  = { .name = "method",  .type = BLOBMSG_TYPE_STRING },
 		[RPC_PARAMS]  = { .name = "params",  .type = BLOBMSG_TYPE_ARRAY }
 	};
-	enum { __RPC_MAX = (sizeof rpc_policy / sizeof rpc_policy[0]) };
-
+	enum { __RPC_MAX = (sizeof(rpc_policy) / sizeof(rpc_policy[0])) };
 	struct blob_attr *tb[__RPC_MAX];
 
 	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
 	 * and which is right here? (uhttpd ubus uses blob_.. for blob made with
-	 * blobmsg_add_object and so do we) */
+	 * blobmsg_add_object and so do we)
+	 */
 	blobmsg_parse(rpc_policy, __RPC_MAX, tb, blob_data(blob), blob_len(blob));
 
 	/* set ID always, we need to return it even if error in parsing other fields */
@@ -63,6 +64,7 @@ int jsonrpc_blob_req_parse(struct jsonrpc_blob_req *req, const struct blob_attr 
 		return -3;
 
 	const char *version = blobmsg_get_string(tb[RPC_JSONRPC]);
+
 	if (strcmp("2.0", version))
 		return -4;
 
@@ -79,11 +81,11 @@ void ubusrpc_blob_destroy_default(struct ubusrpc_blob *ubusrpc_)
 	free(ubusrpc_);
 }
 
-struct ubusrpc_blob* ubusrpc_blob_parse(const char *method, struct blob_attr *params_blob, enum jsonrpc_error_code *err)
+struct ubusrpc_blob *ubusrpc_blob_parse(const char *method, struct blob_attr *params_blob, enum jsonrpc_error_code *err)
 {
 	struct {
 		const char *name;
-		struct ubusrpc_blob* (*parse_func)(struct blob_attr *params_blob);
+		struct ubusrpc_blob *(*parse_func)(struct blob_attr *params_blob);
 		int (*handle_func)(struct lws *wsi, struct ubusrpc_blob *ubusrpc, struct blob_attr *id);
 	} supported_methods[] = {
 		{ "call", ubusrpc_blob_call_parse, ubusrpc_handle_call },
@@ -94,7 +96,9 @@ struct ubusrpc_blob* ubusrpc_blob_parse(const char *method, struct blob_attr *pa
 	};
 	enum jsonrpc_error_code e;
 	struct ubusrpc_blob *ret;
-	for (unsigned long i = 0; i < ARRAY_SIZE(supported_methods); ++i)
+	unsigned long i;
+
+	for (i = 0; i < ARRAY_SIZE(supported_methods); ++i)
 		if (!strcmp(supported_methods[i].name, method)) {
 			ret = supported_methods[i].parse_func(params_blob);
 			if (ret) {

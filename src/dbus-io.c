@@ -26,6 +26,7 @@ static void wsd_trigger_timer(struct uloop_timeout *utimer)
 	struct wsd_utimer *wsd = container_of(utimer, struct wsd_utimer, utimer);
 	/* save timeout since timeout_handle will clear wsd->dtimer */
 	DBusTimeout *timeout = wsd->dtimer;
+
 	dbus_timeout_handle(timeout);
 	if (wsd->dtimer) {
 		/* only set timer if we werent deleted inside timeout_handle -> del_timeout */
@@ -37,69 +38,68 @@ static dbus_bool_t wsd_add_timeout(DBusTimeout *timeout, void *data)
 {
 	/* struct prog_context *global = data; */
 	struct wsd_utimer *wsd = NULL;
+
 	for (size_t i = 0; i < ARRAY_SIZE(timers); ++i)
 		if (!timers[i].dtimer) {
 			wsd = timers + i;
 			break;
 		}
 
-	if (!wsd) {
+	if (!wsd)
 		return FALSE;
-	}
 
 	dbus_timeout_set_data(timeout, wsd, NULL);
 
 	wsd->utimer.cb = wsd_trigger_timer;
 	wsd->dtimer = timeout;
-	if (dbus_timeout_get_enabled(timeout)) {
+	if (dbus_timeout_get_enabled(timeout))
 		uloop_timeout_set(&wsd->utimer, dbus_timeout_get_interval(timeout));
-	}
 	return TRUE;
 }
 
 static void wsd_mod_timeout(DBusTimeout *timeout, void *data)
 {
 	struct wsd_utimer *wsd = dbus_timeout_get_data(timeout);
-	assert(wsd);
 
+	assert(wsd);
 	if (dbus_timeout_get_enabled(timeout)) {
 		if (wsd->utimer.pending)
 			uloop_timeout_cancel(&wsd->utimer);
 		uloop_timeout_set(&wsd->utimer, dbus_timeout_get_interval(timeout));
-	} else {
+	} else
 		uloop_timeout_cancel(&wsd->utimer);
-	}
+
 }
 
 static void wsd_del_timeout(DBusTimeout *timeout, void *data)
 {
 	struct wsd_utimer *wsd = dbus_timeout_get_data(timeout);
-	assert(wsd);
 
+	assert(wsd);
 	if (wsd->utimer.pending)
 		uloop_timeout_cancel(&wsd->utimer);
 	wsd->dtimer = NULL;
 }
 
 static inline uint8_t
-eventmask_dbus_to_ufd(unsigned d)
+eventmask_dbus_to_ufd(unsigned int d)
 {
 	return
-		(d & DBUS_WATCH_READABLE ? ULOOP_READ  : 0) |
-		(d & DBUS_WATCH_WRITABLE ? ULOOP_WRITE : 0);
+		((d & DBUS_WATCH_READABLE) ? ULOOP_READ  : 0) |
+		((d & DBUS_WATCH_WRITABLE) ? ULOOP_WRITE : 0);
 }
 
 static inline unsigned
-eventmask_ufd_to_dbus(unsigned u, bool hup, bool err)
+eventmask_ufd_to_dbus(unsigned int u, bool hup, bool err)
 {
 	return
-		(u & ULOOP_READ ? DBUS_WATCH_READABLE : 0) |
-		(u & ULOOP_WRITE ? DBUS_WATCH_WRITABLE : 0) |
+		((u & ULOOP_READ) ? DBUS_WATCH_READABLE : 0) |
+		((u & ULOOP_WRITE) ? DBUS_WATCH_WRITABLE : 0) |
 		(hup ? DBUS_WATCH_HANGUP : 0) |
 		(err ? DBUS_WATCH_ERROR : 0);
 }
 
-static void wsd_trigger_io(struct uloop_fd *ufd, unsigned flags)
+static void wsd_trigger_io(struct uloop_fd *ufd, unsigned int flags)
 {
 	struct wsd_ufd *wsd = container_of(ufd, struct wsd_ufd, ufd);
 
@@ -109,24 +109,23 @@ static void wsd_trigger_io(struct uloop_fd *ufd, unsigned flags)
 static dbus_bool_t wsd_add_fd(DBusWatch *dfd, void *data)
 {
 	struct wsd_ufd *wsd = NULL;
+
 	for (size_t i = 0; i < ARRAY_SIZE(fds); ++i)
 		if (!fds[i].dfd) {
 			wsd = fds + i;
 			break;
 		}
 
-	if (!wsd) {
+	if (!wsd)
 		return FALSE;
-	}
 
 	wsd->dfd = dfd;
 	wsd->ufd.cb = wsd_trigger_io;
 	wsd->ufd.fd = dbus_watch_get_socket(wsd->dfd);
 	dbus_watch_set_data(dfd, wsd, NULL);
 
-	if (dbus_watch_get_enabled(dfd)) {
+	if (dbus_watch_get_enabled(dfd))
 		return uloop_fd_add(&wsd->ufd, eventmask_dbus_to_ufd(dbus_watch_get_flags(dfd))) == 0;
-	}
 
 	return TRUE;
 }
@@ -134,22 +133,21 @@ static dbus_bool_t wsd_add_fd(DBusWatch *dfd, void *data)
 static void wsd_mod_fd(DBusWatch *timeout, void *data)
 {
 	struct wsd_ufd *wsd = dbus_watch_get_data(timeout);
-	assert(wsd);
 
+	assert(wsd);
 	if (dbus_watch_get_enabled(wsd->dfd)) {
 		wsd->ufd.fd = dbus_watch_get_socket(wsd->dfd);
 		wsd->ufd.cb = wsd_trigger_io;
 		uloop_fd_add(&wsd->ufd, eventmask_dbus_to_ufd(dbus_watch_get_flags(wsd->dfd)));
-	} else {
+	} else
 		uloop_fd_delete(&wsd->ufd);
-	}
 }
 
 static void wsd_del_fd(DBusWatch *timeout, void *data)
 {
 	struct wsd_ufd *wsd = dbus_watch_get_data(timeout);
-	assert(wsd);
 
+	assert(wsd);
 	uloop_fd_delete(&wsd->ufd);
 }
 static void wsd_trigger_dispatch(struct uloop_timeout *udefer)

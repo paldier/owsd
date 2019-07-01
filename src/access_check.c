@@ -36,7 +36,7 @@
  * In some cases we don't want to ask rpcd session object for access. For these
  * uses we make up a "extended" session id, which is one that starts with "X-".
  */
-static inline const char* wsu_sid_extended(const char *sid)
+static inline const char *wsu_sid_extended(const char *sid)
 {
 	return strstr(sid, SID_EXTENDED_PREFIX) == sid ? sid+strlen(SID_EXTENDED_PREFIX) : NULL;
 }
@@ -62,17 +62,22 @@ static enum wsu_ext_result wsu_ext_restrict_interface(struct lws *wsi,
 		struct blob_buf *args)
 {
 	(void)scope; (void)sid;
+
 	if (!strcmp(object, "session") && !strcmp(method, "login")) {
-		unsigned rem;
+		unsigned int rem;
 		struct blob_attr *cur;
+
 		blobmsg_for_each_attr(cur, args->head, rem) {
 			if (!strcmp("username", blobmsg_name(cur))) {
-				struct vh_context *vc = *(struct vh_context**)lws_protocol_vh_priv_get(lws_get_vhost(wsi), lws_get_protocol(wsi));
+				struct vh_context *vc = *(struct vh_context **)lws_protocol_vh_priv_get(lws_get_vhost(wsi), lws_get_protocol(wsi));
+
 				if (!list_empty(&vc->users)) {
 					struct str_list *s;
-					list_for_each_entry(s, &vc->users, list)
+
+					list_for_each_entry(s, &vc->users, list) {
 						if (!strcmp(s->str, blobmsg_get_string(cur)))
 							return EXT_CHECK_ALLOW;
+					}
 					return EXT_CHECK_DENY;
 				}
 			}
@@ -98,8 +103,8 @@ static enum wsu_ext_result wsu_ext_check_tls(struct lws *wsi, const char *object
 	}
 	union lws_tls_cert_info_results info = {0};
 	size_t len = 64;
-
 	int rc = lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_VERIFIED, &info, len);
+
 	if (rc) {
 		lwsl_notice("wsi %p TLS cert does not exist\n", wsi);
 		goto exit;
@@ -168,11 +173,10 @@ void wsubus_access_check_free(struct wsubus_access_check_req *req)
 static void wsubus_access_check__on_ret(struct ubus_request *ureq, int type, struct blob_attr *msg)
 {
 	(void)type;
-
 	struct wsubus_access_check_req *req = container_of(ureq, struct wsubus_access_check_req, ubus_req);
-
 	unsigned int rem;
 	struct blob_attr *pos;
+
 	blobmsg_for_each_attr(pos, msg, rem) {
 		if (!strcmp("access", blobmsg_name(pos)) && blobmsg_type(pos) == BLOBMSG_TYPE_BOOL) {
 			req->result = blobmsg_get_bool(pos);
@@ -206,8 +210,9 @@ static int wsubus_access_check_via_session(
 		void *ctx,
 		wsubus_access_cb cb)
 {
-	unsigned rem;
+	unsigned int rem;
 	struct blob_attr *cur;
+
 	/* does not allow ubus_rpc_session arg in params, as we will add it */
 	if (args) {
 		blob_for_each_attr(cur, args->head, rem) {
@@ -220,12 +225,12 @@ static int wsubus_access_check_via_session(
 	uint32_t access_id;
 
 	/* look up ubus object names "session" */
-	if (ubus_lookup_id(ubus_ctx, "session", &access_id) != UBUS_STATUS_OK) {
+	if (ubus_lookup_id(ubus_ctx, "session", &access_id) != UBUS_STATUS_OK)
 		goto fail;
-	}
 
 	/* construct call */
 	struct blob_buf blob_for_access = {};
+
 	blob_buf_init(&blob_for_access, 0);
 
 	blobmsg_add_string(&blob_for_access, "ubus_rpc_session", sid);
@@ -238,15 +243,15 @@ static int wsubus_access_check_via_session(
 		blobmsg_add_string(args, "ubus_rpc_session", sid);
 		/* we give the session object parameters "params" in hope some day
 		 * session object will actually be able to check arguments and not just
-		 * object/method names */
+		 * object/method names
+		 */
 		blobmsg_add_field(&blob_for_access, BLOBMSG_TYPE_TABLE, "params", blobmsg_data(args->head), blobmsg_len(args->head));
 	}
 
 	ret = ubus_invoke_async(ubus_ctx, access_id, "access", blob_for_access.head, &r->ubus_req);
 
-	if (ret != UBUS_STATUS_OK) {
+	if (ret != UBUS_STATUS_OK)
 		goto fail_mem_blob;
-	}
 
 	r->tag = REQ_TAG_UBUS;
 	r->ubus_req.data_cb = wsubus_access_check__on_ret;
@@ -265,8 +270,10 @@ fail:
 }
 #endif /* WSD_HAVE_UBUS */
 
-static void deferral_cb(struct uloop_timeout *t) {
+static void deferral_cb(struct uloop_timeout *t)
+{
 	struct wsubus_access_check_req *req = container_of(t, struct wsubus_access_check_req, defer_timer);
+
 	assert(req->tag == REQ_TAG_DEFER);
 	req->cb(req, req->ctx, req->result);
 }
@@ -301,11 +308,11 @@ int wsubus_access_check_(
 	req->ctx = ctx;
 
 	enum wsu_ext_result res = EXT_CHECK_NEXT;
+
 	/* first, check if one of 2 checkers whitelists this call */
 	if (esid) {
-		if (!strcmp("mgmt-interface", esid)) {
+		if (!strcmp("mgmt-interface", esid))
 			res = wsu_ext_check_interface(wsi);
-		}
 #ifdef LWS_OPENSSL_SUPPORT
 		else if (!strcmp("tls-certificate", esid)) {
 			struct json_object *obj = NULL;
@@ -348,13 +355,13 @@ int wsubus_access_check_(
 
 	/* restrict calls only to some network interfaces */
 	res = wsu_ext_restrict_interface(wsi, sid, scope, object, method, args);
-	if (res != EXT_CHECK_NEXT) {
+	if (res != EXT_CHECK_NEXT)
 		return defer_callback(req, ctx, res == EXT_CHECK_ALLOW);
-	}
 
 	/* by default, if no checker has made decision until now, ask rpcd about it (or allow if no ubus support) */
 #if WSD_HAVE_UBUS
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
+
 	return wsubus_access_check_via_session(req, prog->ubus_ctx, sid, scope, object, method, args, ctx, cb);
 #else
 	return EXT_CHECK_ALLOW;

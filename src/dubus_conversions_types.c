@@ -14,6 +14,7 @@ static enum blobmsg_type _duconv_dbus_to_ubus_basic(
 	case DBUS_TYPE_INT64:
 		if (b && msg_iter && ubus_arg_name) {
 			uint64_t v64;
+
 			dbus_message_iter_get_basic(msg_iter, &v64);
 			blobmsg_add_u64(b, ubus_arg_name, v64);
 		}
@@ -23,6 +24,7 @@ static enum blobmsg_type _duconv_dbus_to_ubus_basic(
 	case DBUS_TYPE_INT32:
 		if (b && msg_iter && ubus_arg_name) {
 			uint32_t v32;
+
 			dbus_message_iter_get_basic(msg_iter, &v32);
 			blobmsg_add_u32(b, ubus_arg_name, v32);
 		}
@@ -32,6 +34,7 @@ static enum blobmsg_type _duconv_dbus_to_ubus_basic(
 	case DBUS_TYPE_INT16:
 		if (b && msg_iter && ubus_arg_name) {
 			uint16_t v16;
+
 			dbus_message_iter_get_basic(msg_iter, &v16);
 			blobmsg_add_u16(b, ubus_arg_name, v16);
 		}
@@ -40,6 +43,7 @@ static enum blobmsg_type _duconv_dbus_to_ubus_basic(
 	case DBUS_TYPE_BOOLEAN:
 		if (b && msg_iter && ubus_arg_name) {
 			int32_t v32;
+
 			dbus_message_iter_get_basic(msg_iter, &v32);
 			blobmsg_add_u8(b, ubus_arg_name, !!v32);
 		}
@@ -50,6 +54,7 @@ static enum blobmsg_type _duconv_dbus_to_ubus_basic(
 	case DBUS_TYPE_STRING:
 		if (b && msg_iter && ubus_arg_name) {
 			char *vstr;
+
 			dbus_message_iter_get_basic(msg_iter, &vstr);
 			blobmsg_add_string(b, ubus_arg_name, vstr);
 		}
@@ -78,6 +83,7 @@ static enum blobmsg_type _duconv_dbus_to_ubus(
 		if (b && msg_iter && ubus_arg_name) {
 			DBusMessageIter rec_iter;
 			void *arr = blobmsg_open_array(b, ubus_arg_name);
+
 			for (dbus_message_iter_recurse(msg_iter, &rec_iter);
 					dbus_message_iter_get_arg_type(&rec_iter) != DBUS_TYPE_INVALID;
 					dbus_message_iter_next(&rec_iter)) {
@@ -101,6 +107,7 @@ enum blobmsg_type duconv_type_dbus_to_ubus(int dbus_type, int dbus_elem_type)
 enum blobmsg_type duconv_type_dbus_sigiter_to_ubus(DBusSignatureIter *dbus_sig_iter)
 {
 	int dbus_type = dbus_signature_iter_get_current_type(dbus_sig_iter);
+
 	return duconv_type_dbus_to_ubus(dbus_type, dbus_type == DBUS_TYPE_ARRAY ? dbus_signature_iter_get_element_type(dbus_sig_iter) : DBUS_TYPE_INVALID);
 }
 
@@ -118,7 +125,7 @@ int duconv_msg_dbus_to_ubus(
 
 void duconv_convert_init(struct duconv_convert *c, const char *arg_fmt)
 {
-	memset(c, 0, sizeof *c);
+	memset(c, 0, sizeof(*c));
 	blobmsg_buf_init(&c->b);
 	c->arg_fmt = strdup(arg_fmt);
 }
@@ -133,6 +140,7 @@ static char *_duconv_convert_get_next_arg(struct duconv_convert *c)
 {
 	int len = snprintf(NULL, 0, c->arg_fmt, c->arg_num);
 	char *ret = malloc(len + 1);
+
 	if (!ret)
 		return false;
 	sprintf(ret, c->arg_fmt, c->arg_num);
@@ -145,16 +153,17 @@ bool duconv_msig_dbus_to_ubus_add_arg(
 		const char *arg_name)
 {
 	DBusSignatureIter sig_iter;
+
 	if (!dbus_signature_validate_single(arg_type, NULL))
 		return false;
 
 	dbus_signature_iter_init(&sig_iter, arg_type);
 	int ubus_type = duconv_type_dbus_sigiter_to_ubus(&sig_iter);
-
 	char *my_arg_name = NULL;
-	if (!arg_name) {
+
+	if (!arg_name)
 		arg_name = my_arg_name = _duconv_convert_get_next_arg(c);
-	}
+
 	++c->arg_num;
 
 	blobmsg_add_u32(&c->b, arg_name, ubus_type);
@@ -168,12 +177,14 @@ bool duconv_msgiter_dbus_to_ubus_add_arg(
 		const char *arg_name)
 {
 	char *my_arg_name = NULL;
-	if (!arg_name) {
+
+	if (!arg_name)
 		arg_name = my_arg_name = _duconv_convert_get_next_arg(c);
-	}
+
 	++c->arg_num;
 
 	int ubus_type = duconv_msg_dbus_to_ubus(&c->b, msg_iter, arg_name);
+
 	free(my_arg_name);
 	return ubus_type != BLOBMSG_TYPE_UNSPEC;
 }
@@ -184,6 +195,7 @@ int _duconv_msg_ubus_to_dbus_basic(
 		DBusSignatureIter *wanted_sig_iter)
 {
 	int dbus_type = DBUS_TYPE_INVALID;
+
 	if (wanted_sig_iter)
 		dbus_type = dbus_signature_iter_get_current_type(wanted_sig_iter);
 
@@ -196,6 +208,7 @@ int _duconv_msg_ubus_to_dbus_basic(
 
 		if (out_iter) {
 			const uint32_t res = blobmsg_get_u32(cur_arg);
+
 			dbus_message_iter_append_basic(out_iter, dbus_type, &res);
 		}
 
@@ -209,6 +222,7 @@ int _duconv_msg_ubus_to_dbus_basic(
 
 		if (out_iter) {
 			const uint16_t res = blobmsg_get_u16(cur_arg);
+
 			dbus_message_iter_append_basic(out_iter, dbus_type, &res);
 		}
 
@@ -223,6 +237,7 @@ int _duconv_msg_ubus_to_dbus_basic(
 		if (out_iter) {
 			const uint8_t res = blobmsg_get_u8(cur_arg);
 			const int32_t res_bool32 = (int32_t)!!res;
+
 			dbus_message_iter_append_basic(out_iter, dbus_type, &res_bool32);
 		}
 
@@ -236,6 +251,7 @@ int _duconv_msg_ubus_to_dbus_basic(
 
 		if (out_iter) {
 			const char * const str = blobmsg_get_string(cur_arg);
+
 			dbus_message_iter_append_basic(out_iter, dbus_type, &str);
 		}
 
@@ -251,6 +267,7 @@ int duconv_msg_ubus_to_dbus(
 		DBusSignatureIter *wanted_sig_iter)
 {
 	int dbus_type = DBUS_TYPE_INVALID;
+
 	if (wanted_sig_iter)
 		dbus_type = dbus_signature_iter_get_current_type(wanted_sig_iter);
 	switch (blobmsg_type(cur_arg)) {
@@ -270,19 +287,19 @@ int duconv_msg_ubus_to_dbus(
 				if (blobmsg_type(first) != blobmsg_type(it))
 					return DBUS_TYPE_INVALID;
 			}
-
 			DBusSignatureIter wanted_elem_sig_iter;
+
 			if (wanted_sig_iter)
 				dbus_signature_iter_recurse(wanted_sig_iter, &wanted_elem_sig_iter);
 
 			int dbus_elem_type = DBUS_TYPE_INVALID;
 
 			/* set elem type from either the elems themselves or from hint if empty */
-			if (first) {
+			if (first)
 				dbus_elem_type = _duconv_msg_ubus_to_dbus_basic(NULL, first, wanted_sig_iter ? &wanted_elem_sig_iter : NULL);
-			} else if(wanted_sig_iter) {
+			else if (wanted_sig_iter)
 				dbus_elem_type = dbus_signature_iter_get_current_type(&wanted_elem_sig_iter);
-			}
+
 
 			if (dbus_elem_type == DBUS_TYPE_INVALID)
 				return DBUS_TYPE_INVALID;
@@ -292,6 +309,7 @@ int duconv_msg_ubus_to_dbus(
 				/* FIXME these sort of hacks go out the window for recursion */
 				char dbus_elem_sig[2] = { dbus_elem_type, DBUS_TYPE_INVALID };
 				DBusMessageIter out_elem_iter;
+
 				dbus_message_iter_open_container(out_iter, dbus_type, dbus_elem_sig, &out_elem_iter);
 
 				blob_for_each_attr(it, blobmsg_data(cur_arg), rem) {

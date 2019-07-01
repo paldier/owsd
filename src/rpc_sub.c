@@ -79,7 +79,9 @@ DBusHandlerResult ws_sub_cb_dbus(DBusConnection *bus, DBusMessage *msg, void *da
 static void wsubus_unsub_elem(struct ws_request_base *elem_)
 {
 	struct ws_sub_info_ubus *elem = container_of(elem_, struct ws_sub_info_ubus, _base);
+#if (WSD_HAVE_UBUS || WSD_HAVE_DBUS)
 	struct prog_context *prog = lws_context_user(lws_get_context(elem->wsi));
+#endif
 
 #if WSD_HAVE_UBUS
 	ubus_unregister_event_handler(prog->ubus_ctx, &elem->ubus_handler);
@@ -94,32 +96,32 @@ static void wsubus_unsub_elem(struct ws_request_base *elem_)
 	}
 #endif
 
-	if (elem->sub->destroy) {
+	if (elem->sub->destroy)
 		elem->sub->destroy(&elem->sub->_base);
-	} else {
+	else
 		ubusrpc_blob_destroy_default(&elem->sub->_base);
-	}
+
 	free(elem);
 }
 
 static int ubusrpc_blob_sub_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob_attr *blob)
 {
 	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
-		[0] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-session id */
-		[1] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-object */
+		{ .type = BLOBMSG_TYPE_STRING }, /* ubus-session id */
+		{ .type = BLOBMSG_TYPE_STRING }  /* ubus-object */
 	};
-	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
+	enum { __RPC_U_MAX = (sizeof(rpc_ubus_param_policy) / sizeof(rpc_ubus_param_policy[0])) };
 	struct blob_attr *tb[__RPC_U_MAX];
-
 	struct blob_attr *dup_blob = blob_memdup(blob);
-	if (!dup_blob) {
+
+	if (!dup_blob)
 		return -100;
-	}
 
 	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
 	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	 * comes from another blob's table... here and so do we) */
-	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(dup_blob), (unsigned)blobmsg_len(dup_blob));
+	 * comes from another blob's table... here and so do we)
+	 */
+	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(dup_blob), (unsigned int)blobmsg_len(dup_blob));
 
 	if (!tb[0]) {
 		free(dup_blob);
@@ -137,9 +139,10 @@ static int ubusrpc_blob_sub_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob
 	return 0;
 }
 
-struct ubusrpc_blob* ubusrpc_blob_sub_parse(struct blob_attr *blob)
+struct ubusrpc_blob *ubusrpc_blob_sub_parse(struct blob_attr *blob)
 {
-	struct ubusrpc_blob_sub *ubusrpc = calloc(1, sizeof *ubusrpc);
+	struct ubusrpc_blob_sub *ubusrpc = calloc(1, sizeof(*ubusrpc));
+
 	if (!ubusrpc)
 		return NULL;
 
@@ -156,13 +159,14 @@ int ubusrpc_blob_sub_list_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob_a
 	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
 		[0] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-session id */
 	};
-	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
+	enum { __RPC_U_MAX = (sizeof(rpc_ubus_param_policy) / sizeof(rpc_ubus_param_policy[0])) };
 	struct blob_attr *tb[__RPC_U_MAX];
 
 	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
 	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	 * comes from another blob's table... here and so do we) */
-	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(blob), (unsigned)blobmsg_len(blob));
+	 * comes from another blob's table... here and so do we)
+	 */
+	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(blob), (unsigned int)blobmsg_len(blob));
 
 	if (!tb[0])
 		return 2;
@@ -173,9 +177,10 @@ int ubusrpc_blob_sub_list_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob_a
 	return 0;
 }
 
-struct ubusrpc_blob* ubusrpc_blob_sub_list_parse(struct blob_attr *blob)
+struct ubusrpc_blob *ubusrpc_blob_sub_list_parse(struct blob_attr *blob)
 {
-	struct ubusrpc_blob_sub *ubusrpc = calloc(1, sizeof *ubusrpc);
+	struct ubusrpc_blob_sub *ubusrpc = calloc(1, sizeof(*ubusrpc));
+
 	if (!ubusrpc)
 		return NULL;
 
@@ -197,7 +202,8 @@ int ubusrpc_handle_sub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct bl
 
 
 	/* create entry */
-	struct ws_sub_info_ubus *subinfo = malloc(sizeof *subinfo);
+	struct ws_sub_info_ubus *subinfo = malloc(sizeof(*subinfo));
+
 	if (!subinfo) {
 		lwsl_err("alloc subinfo error\n");
 		ret = 9; /* FIXME this is UBUS_STATUS_NO_DATA, should have our enum */
@@ -242,6 +248,7 @@ out:
 		ubusrpc->src_blob = NULL;
 	}
 	char *response = jsonrpc__resp_ubus(id, ret, NULL);
+
 	wsu_queue_write_str(wsi, response);
 	free(response);
 	peer->u.client.rpc_q_len--;
@@ -266,35 +273,40 @@ DBusHandlerResult ws_sub_cb_dbus(DBusConnection *bus, DBusMessage *msg, void *da
 {
 	(void)data;
 
-	if (dbus_message_get_type(msg) != DBUS_MESSAGE_TYPE_SIGNAL) {
+	if (dbus_message_get_type(msg) != DBUS_MESSAGE_TYPE_SIGNAL)
 		return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
-	}
 
 	const char *type = dbus_message_get_member(msg);
+
 	lwsl_notice("dbus event %s happened\n", type);
 
 	/* find matching entry in list */
 	{
 		struct ws_sub_info_ubus *elem, *tmp;
+
 		list_for_each_entry_safe(elem, tmp, &listen_list, list) {
 			if (fnmatch(elem->sub->pattern, type, 0))
 				continue;
 
 			/* prepare RPC event notification */
 			struct blob_buf resp_buf = {};
+
 			blob_buf_init(&resp_buf, 0);
 			blobmsg_add_string(&resp_buf, "jsonrpc", "2.0");
 			blobmsg_add_string(&resp_buf, "method", "event");
 
-			lwsl_notice("notifying wsi %p \n", elem->wsi);
+			lwsl_notice("notifying wsi %p\n", elem->wsi);
 
 			void *tkt = blobmsg_open_table(&resp_buf, "params");
+
 			blobmsg_add_string(&resp_buf, "type", type);
 
 			/* convert event name/data */
 			struct duconv_convert c;
+
 			duconv_convert_init(&c, "arg%d");
 			DBusMessageIter iter;
+
 			dbus_message_iter_init(msg, &iter);
 			do {
 				duconv_msgiter_dbus_to_ubus_add_arg(&c, &iter, NULL);
@@ -306,6 +318,7 @@ DBusHandlerResult ws_sub_cb_dbus(DBusConnection *bus, DBusMessage *msg, void *da
 			blobmsg_close_table(&resp_buf, tkt);
 
 			char *response = blobmsg_format_json(resp_buf.head, true);
+
 			blob_buf_free(&resp_buf);
 
 			wsu_queue_write_str(elem->wsi, response);
@@ -324,10 +337,12 @@ int ubusrpc_handle_sub_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, stru
 	int ret = 0;
 	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct blob_buf sub_list_blob = {};
+
 	blob_buf_init(&sub_list_blob, 0);
 
-	void* array_ticket = blobmsg_open_array(&sub_list_blob, "");
+	void *array_ticket = blobmsg_open_array(&sub_list_blob, "");
 	struct ws_sub_info_ubus *elem, *tmp;
+
 	list_for_each_entry_safe(elem, tmp, &listen_list, list) {
 		if (elem->wsi == wsi)
 			blobmsg_add_sub_info(&sub_list_blob, "", elem);
@@ -364,6 +379,7 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 	{
 		ret = 1;
 		struct ws_sub_info_ubus *elem, *tmp;
+
 		list_for_each_entry_safe(elem, tmp, &listen_list, list) {
 			/* check pattern */
 			if (elem->wsi == wsi && !strcmp(ubusrpc->pattern, elem->sub->pattern)) {
@@ -407,22 +423,24 @@ static void wsubus_ev_check_cb(struct wsubus_access_check_req *req, void *ctx, b
 	wsubus_access_check_free(t->cr.req);
 	lwsl_debug("access check for event gave %d\n", access);
 
-	if (!access) {
+	if (!access)
 		goto out;
-	}
 
 	struct blob_buf resp_buf = {};
+
 	blob_buf_init(&resp_buf, 0);
 	blobmsg_add_string(&resp_buf, "jsonrpc", "2.0");
 	blobmsg_add_string(&resp_buf, "method", "event");
 
 	void *tkt = blobmsg_open_table(&resp_buf, "params");
+
 	blobmsg_add_string(&resp_buf, "type", t->type);
 	blobmsg_add_field(&resp_buf, BLOBMSG_TYPE_TABLE, "data", blobmsg_data(t->msg), blobmsg_len(t->msg));
 	blobmsg_add_sub_info(&resp_buf, "subscription", t->info);
 	blobmsg_close_table(&resp_buf, tkt);
 
 	char *response = blobmsg_format_json(resp_buf.head, true);
+
 	blob_buf_free(&resp_buf);
 
 	wsu_queue_write_str(t->info->wsi, response);
@@ -444,8 +462,8 @@ static void wsubus_sub_cb(struct ubus_context *ctx, struct ubus_event_handler *e
 
 	struct ws_sub_info_ubus *info = container_of(ev, struct ws_sub_info_ubus, ubus_handler);
 	struct wsu_client_session *client = wsi_to_client(info->wsi);
+	struct wsubus_ev_notif *t = malloc(sizeof(*t));
 
-	struct wsubus_ev_notif *t = malloc(sizeof *t);
 	t->type = strdup(type);
 	t->msg = blob_memdup(msg);
 	t->info = info;
@@ -453,7 +471,9 @@ static void wsubus_sub_cb(struct ubus_context *ctx, struct ubus_event_handler *e
 	list_add_tail(&t->cr.acq, &client->access_check_q);
 
 	int err = 0;
-	if((t->cr.req = wsubus_access_check_new()))
+
+	t->cr.req = wsubus_access_check_new();
+	if (t->cr.req)
 		err = wsubus_access_check__event(t->cr.req, info->wsi, info->sub->sid, t->type, NULL /* XXX */, t, wsubus_ev_check_cb);
 
 	if (!t->cr.req || err) {

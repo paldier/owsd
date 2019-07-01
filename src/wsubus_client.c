@@ -41,7 +41,7 @@
 /* contains list of urls where to connect as ubus proxy */
 static struct lws_context_creation_info clvh_info = {};
 /* FIXME: to support different certs per client, this must be per client */
-static bool rpcd_integration = false;
+static bool rpcd_integration;
 
 static int client_path_comp(const void *k1, const void *k2, void *ptr);
 
@@ -73,9 +73,8 @@ static int client_path_comp(const void *k1, const void *k2, void *ptr)
 	p2_wildcard = (pattern2[len2-1] == '*');
 
 	/* none has wildcard */
-	if (!p1_wildcard && !p2_wildcard) {
+	if (!p1_wildcard && !p2_wildcard)
 		return strcmp(pattern1, pattern2);
-	}
 
 	/* only one pattern has wildcard */
 	if (p1_wildcard != p2_wildcard) {
@@ -268,7 +267,8 @@ static bool unique_ip(const char *addr)
 		return true;
 
 	/* a client in a teardown state is waiting to be removed, and can therefore
-	be considered to be a unique/non-existing entry */
+	 * be considered to be a unique/non-existing entry
+	 */
 	return client->state == CONNECTION_STATE_TEARINGDOWN;
 }
 
@@ -482,7 +482,6 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 		struct blob_attr *msg)
 {
 	struct blob_attr *tb[__CLIENT_REM_MAX];
-	unsigned int index;
 	struct client_connection_info *client;
 	const char *ip;
 
@@ -490,6 +489,8 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 			blob_data(msg), blob_len(msg));
 
 	if (tb[CLIENT_REM_INDEX]) {
+		unsigned int index;
+
 		index = blobmsg_get_u32(tb[CLIENT_REM_INDEX]);
 		client = get_client_by_index(index);
 		lwsl_notice("remove client index %d\n", index);
@@ -504,19 +505,19 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
 	switch (client->state) {
-		case CONNECTION_STATE_DISCONNECTED:
-			wsubus_client_del(client);
-			break;
-		case CONNECTION_STATE_CONNECTING:
-			client->state = CONNECTION_STATE_TEARINGDOWN;
-			break;
-		case CONNECTION_STATE_CONNECTED:
-			client->state = CONNECTION_STATE_TEARINGDOWN;
-			lws_callback_on_writable(client->wsi);
-			break;
-		case CONNECTION_STATE_TEARINGDOWN:
-		default:
-			break;
+	case CONNECTION_STATE_DISCONNECTED:
+		wsubus_client_del(client);
+		break;
+	case CONNECTION_STATE_CONNECTING:
+		client->state = CONNECTION_STATE_TEARINGDOWN;
+		break;
+	case CONNECTION_STATE_CONNECTED:
+		client->state = CONNECTION_STATE_TEARINGDOWN;
+		lws_callback_on_writable(client->wsi);
+		break;
+	case CONNECTION_STATE_TEARINGDOWN:
+	default:
+		break;
 	}
 
 	return UBUS_STATUS_OK;
@@ -530,9 +531,9 @@ static void dump_client(struct blob_buf *bb,
 	bool has_ssl;
 
 	snprintf(clname, 16, "proxy-%d", client->index);
-	has_ssl = client->connection_info.ssl_connection &
-		(LCCSCF_USE_SSL | LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK) ?
-		true : false;
+	has_ssl = ((client->connection_info.ssl_connection &
+		(LCCSCF_USE_SSL | LCCSCF_SKIP_SERVER_CERT_HOSTNAME_CHECK)) ?
+		true : false);
 
 	t = blobmsg_open_table(bb, clname);
 	blobmsg_add_u32(bb, "index", client->index);

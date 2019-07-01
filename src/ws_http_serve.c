@@ -42,7 +42,8 @@ int ws_http_serve_interpret_retcode(struct lws *wsi, int ret)
 	} else if (ret > 0) {
 		/* return code is okay, ask lws if transaction is done, and return
 		 * accordingly. This will make us stay connected on HTTP/1.1 and close
-		 * on HTTP/1.0 etc. */
+		 * on HTTP/1.0 etc.
+		 */
 		return lws_http_transaction_completed(wsi) ? -1 : 0;
 	}
 	/* return code is "neutral", keep connection alive */
@@ -64,9 +65,16 @@ static char *ws_http_construct_pathname(const char *base, const char *in)
 		free(filepath);
 		return NULL;
 	} else if (written >= PATH_MAX) {
-		filepath = realloc(filepath, (size_t)written);
-		snprintf(filepath, PATH_MAX, "%s/%s%s",
+		char *tmp_filepath = realloc(filepath, (size_t)written);
+
+		if (tmp_filepath) {
+			filepath = tmp_filepath;
+			snprintf(filepath, PATH_MAX, "%s/%s%s",
 				base, in, in[strlen(in)-1] == '/' ? "index.html" : "");
+		} else {
+			free(filepath);
+			return NULL;
+		}
 	}
 
 	return filepath;
@@ -84,19 +92,20 @@ struct fileext_map {
 	const char *val;
 };
 
-static const char * filepath_strnrchr(const char *filepath, size_t n, int c)
+static const char *filepath_strnrchr(const char *filepath, size_t n, int c)
 {
 	const char *last_dot = filepath + n - 1;
-	while (last_dot >= filepath && *last_dot != c) {
+
+	while (last_dot >= filepath && *last_dot != c)
 		--last_dot;
-	}
+
 	if (last_dot >= filepath)
 		return last_dot;
 
 	return NULL;
 }
 
-static const struct fileext_map* mapping_by_extension(const char *ext, size_t n,
+static const struct fileext_map *mapping_by_extension(const char *ext, size_t n,
 		const struct fileext_map map[], size_t map_size)
 {
 	for (const struct fileext_map *end = map + map_size; map < end; ++map) {
@@ -111,25 +120,25 @@ static const char *determine_mimetype(const char *filepath, size_t n)
 {
 	static const struct fileext_map mime_map[] = {
 		{ "html", "text/html"                 },
-		{ "js"  , "application/javascript"    },
-		{ "png" , "image/png"                 },
-		{ "gif" , "image/gif"                 },
-		{ "jpg" , "image/jpeg"                },
+		{ "js",   "application/javascript"    },
+		{ "png",  "image/png"                 },
+		{ "gif",  "image/gif"                 },
+		{ "jpg",  "image/jpeg"                },
 		{ "jpeg", "image/jpeg"                },
-		{ "css" , "text/css"                  },
-		{ "txt" , "text/plain"                },
-		{ "htm" , "text/html"                 },
-		{ "bin" , "application/octet-stream"  },
-		{ "img" , "application/octet-stream"  },
+		{ "css",  "text/css"                  },
+		{ "txt",  "text/plain"                },
+		{ "htm",  "text/html"                 },
+		{ "bin",  "application/octet-stream"  },
+		{ "img",  "application/octet-stream"  }
 	};
-
 	const char *last_dot = filepath_strnrchr(filepath, n, '.');
+
 	if (last_dot) {
 		size_t ext_len = (size_t)(filepath + n - last_dot) - 1;
 		const struct fileext_map *m = mapping_by_extension(last_dot+1, ext_len, mime_map, ARRAY_SIZE(mime_map));
-		if (m) {
+
+		if (m)
 			return m->val;
-		}
 	}
 
 	return NULL;
@@ -177,6 +186,7 @@ static void determine_file_meta(struct lws *wsi, struct file_meta *meta, char *f
 
 	/* determine what would be the mimetype of the wanted file by extension */
 	const char *mime = determine_mimetype(meta->real_filepath, n);
+
 	meta->mime = mime ? mime : "application/octet-stream";
 	meta->enc = NULL;
 
@@ -184,15 +194,17 @@ static void determine_file_meta(struct lws *wsi, struct file_meta *meta, char *f
 	for (size_t i = 0; i < ARRAY_SIZE(enc_map); ++i) {
 		strcat(meta->real_filepath, ".");
 		strcat(meta->real_filepath, enc_map[i].ext);
-		if (0 == access(meta->real_filepath, R_OK)) {
+		if (access(meta->real_filepath, R_OK) == 0) {
 			/* success, we store encoding type in meta struct */
 
 			/* TODO we don't consult accept_encoding header since we might not have non-encoded file
-			 * we should have some logic to uncompress the file, or look for a non-compressed file if client doesnt support that content encoding */
+			 * we should have some logic to uncompress the file, or look for a non-compressed file if client doesnt support that content encoding
+			 */
 			/* TODO even better, get rid of this whole file and use all generic mechanisms from libwebsockets itself
 			 * - cache and tweaks are possible
 			 * - redirection rule may or may not be possible
-			 * - uncompression should definitely be possible since v2.2 */
+			 * - uncompression should definitely be possible since v2.2
+			 */
 			meta->enc = enc_map[i].val;
 			break;
 		}
@@ -210,14 +222,15 @@ static const char *const http_timestr = "%a, %d %b %Y %H:%M:%S %Z";
 static void add_last_modified_header(struct lws *wsi, struct file_meta *meta)
 {
 	char buf[256];
-	strftime(buf, sizeof buf, http_timestr,
+
+	strftime(buf, sizeof(buf), http_timestr,
 			gmtime(&meta->filestat.st_mtime));
 
 	lwsl_debug("timestamp of %s is %s\n", meta->real_filepath, buf);
 
-	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_LAST_MODIFIED, (const unsigned char*)buf, (int)strlen(buf), &meta->headers_cur, meta->headers + sizeof meta->headers)) {
+	if (lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_LAST_MODIFIED, (const unsigned char *)buf, (int)strlen(buf), &meta->headers_cur, meta->headers + sizeof(meta->headers)))
 		lwsl_err("Couldn't add Last-modified headers!\n");
-	}
+
 }
 
 /**
@@ -233,10 +246,10 @@ static bool can_reply_notmodified(struct lws *wsi, struct file_meta *meta)
 
 	char buf[256] = "";
 
-	lws_hdr_copy(wsi, buf, sizeof buf - 1, WSI_TOKEN_HTTP_CACHE_CONTROL);
+	lws_hdr_copy(wsi, buf, sizeof(buf) - 1, WSI_TOKEN_HTTP_CACHE_CONTROL);
 
 	/* check cache-control header for mention of no-cache */
-	foreach_strtoken (cur, buf, ",; ") {
+	foreach_strtoken(cur, buf, ",; ") {
 		if (!strcmp(cur, "no-cache") || cur == strstr(cur, "no-cache=")) {
 			lwsl_debug("no-cache found, don't do 304\n");
 			return false;
@@ -245,11 +258,12 @@ static bool can_reply_notmodified(struct lws *wsi, struct file_meta *meta)
 
 	buf[0] = '\0';
 
-	lws_hdr_copy(wsi, buf, sizeof buf - 1, WSI_TOKEN_HTTP_IF_MODIFIED_SINCE);
+	lws_hdr_copy(wsi, buf, sizeof(buf) - 1, WSI_TOKEN_HTTP_IF_MODIFIED_SINCE);
 
 	/* check file's date is after if-modified-since */
 	struct tm tm = {};
 	char *p = strptime(buf, http_timestr, &tm);
+
 	if (!p || p < buf + strlen(buf) - 4) {
 		lwsl_debug("could not parse if-mod-since %s as time: %s\n", buf, p ? "nonwhole offset" : "NULL ret");
 		return false;
@@ -265,41 +279,61 @@ int ws_http_serve_file(struct lws *wsi, const char *in)
 {
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 	char *filepath = ws_http_construct_pathname(prog->www_path, in);
-	size_t len = strlen(filepath);
-
 	struct file_meta meta = { .status = -1 };
+	size_t len;
+	int rc;
+
+	if (!filepath)
+		return -1;
+
+	len = strlen(filepath);
 	meta.headers_cur = meta.headers;
 
 	/* read file datetime, mime, ... */
 	determine_file_meta(wsi, &meta, filepath, len);
 	lwsl_info("http request for %s = file %s\n", in, meta.real_filepath);
 
-	int rc;
 	if (prog->redir_from && !strcmp(in, prog->redir_from)) {
 		/* request matches a url for which we have a redirect option */
 
 		/* in that case just do a redirect */
-		if ((rc = lws_http_redirect(wsi, HTTP_STATUS_SEE_OTHER, (const unsigned char*)prog->redir_to, strlen(prog->redir_to), &meta.headers_cur, meta.headers + sizeof meta.headers)))
+		rc = lws_http_redirect(wsi, HTTP_STATUS_SEE_OTHER, (const unsigned char *)prog->redir_to, strlen(prog->redir_to), &meta.headers_cur, meta.headers + sizeof(meta.headers));
+		if (rc)
 			goto out;
-		if ((rc = lws_finalize_http_header(wsi, &meta.headers_cur, meta.headers + sizeof meta.headers)))
+
+		rc = lws_finalize_http_header(wsi, &meta.headers_cur, meta.headers + sizeof(meta.headers));
+		if (rc)
 			goto out;
+
 		rc = lws_write(wsi, meta.headers, (size_t)(meta.headers_cur - meta.headers), LWS_WRITE_HTTP_HEADERS);
 	} else if (can_reply_notmodified(wsi, &meta)) {
 		/* otherwise check if we can tell client to get it from their cache */
 
 		lwsl_debug("could reply 304...\n");
-		if ((rc = lws_add_http_header_status(wsi, 304, &meta.headers_cur, meta.headers + sizeof meta.headers)))
+		rc = lws_add_http_header_status(wsi, 304, &meta.headers_cur, meta.headers + sizeof(meta.headers));
+		if (rc)
 			goto out;
-		if (meta.enc && (rc = lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_ENCODING, (const unsigned char*)meta.enc, (int)strlen(meta.enc), &meta.headers_cur, meta.headers + sizeof meta.headers)))
+
+		if (meta.enc) {
+			rc = lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_ENCODING, (const unsigned char *)meta.enc, (int)strlen(meta.enc), &meta.headers_cur, meta.headers + sizeof(meta.headers));
+			if (rc)
+				goto out;
+		}
+
+		rc = lws_finalize_http_header(wsi, &meta.headers_cur, meta.headers + sizeof(meta.headers));
+		if (rc)
 			goto out;
-		if ((rc = lws_finalize_http_header(wsi, &meta.headers_cur, meta.headers + sizeof meta.headers)))
-			goto out;
+
 		rc = lws_write(wsi, meta.headers, (size_t)(meta.headers_cur - meta.headers), LWS_WRITE_HTTP_HEADERS);
 	} else {
 		/* default, just serve the file */
 
-		if (meta.enc && (rc = lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_ENCODING, (const unsigned char*)meta.enc, (int)strlen(meta.enc), &meta.headers_cur, meta.headers + sizeof meta.headers)))
-			goto out;
+		if (meta.enc) {
+			rc = lws_add_http_header_by_token(wsi, WSI_TOKEN_HTTP_CONTENT_ENCODING, (const unsigned char *)meta.enc, (int)strlen(meta.enc), &meta.headers_cur, meta.headers + sizeof(meta.headers));
+			if (rc)
+				goto out;
+
+		}
 		if (meta.status) {
 			lwsl_debug("file doesn't exist, not putting timestamp in header: %d\n", meta.status);
 			rc = !lws_return_http_status(wsi, HTTP_STATUS_NOT_FOUND, NULL) ? 1 : -1;
@@ -307,7 +341,7 @@ int ws_http_serve_file(struct lws *wsi, const char *in)
 		}
 
 		add_last_modified_header(wsi, &meta);
-		rc = lws_serve_http_file(wsi, meta.real_filepath, meta.mime, (const char*)meta.headers, (int)(meta.headers_cur - meta.headers));
+		rc = lws_serve_http_file(wsi, meta.real_filepath, meta.mime, (const char *)meta.headers, (int)(meta.headers_cur - meta.headers));
 	}
 out:
 	free(meta.real_filepath);

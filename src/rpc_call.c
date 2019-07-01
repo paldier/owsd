@@ -43,34 +43,37 @@
 int ubusrpc_blob_call_parse_(struct ubusrpc_blob_call *ubusrpc, struct blob_attr *blob)
 {
 	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
-		[0] = { .type = BLOBMSG_TYPE_STRING }, /*  ubus-session id */
-		[1] = { .type = BLOBMSG_TYPE_STRING }, /*  ubus-object */
-		[2] = { .type = BLOBMSG_TYPE_STRING }, /*  ubus-method */
-		[3] = { .type = BLOBMSG_TYPE_UNSPEC }   /*  ubus-params (named) */
+		{ .type = BLOBMSG_TYPE_STRING }, /*  ubus-session id */
+		{ .type = BLOBMSG_TYPE_STRING }, /*  ubus-object */
+		{ .type = BLOBMSG_TYPE_STRING }, /*  ubus-method */
+		{ .type = BLOBMSG_TYPE_UNSPEC }  /*  ubus-params (named) */
 	};
-	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
+	enum { __RPC_U_MAX = (sizeof(rpc_ubus_param_policy) / sizeof(rpc_ubus_param_policy[0])) };
 	struct blob_attr *tb[__RPC_U_MAX];
-
 	/* we memdup the blob because params can outlive the jsonrpc blob through
-	 * several callbacks */
+	 * several callbacks
+	 */
 	struct blob_attr *dup_blob = blob_memdup(blob);
-	if (!dup_blob) {
-		return -100;
-	}
 
-	struct blob_buf *params_buf = calloc(1, sizeof *params_buf);
+	if (!dup_blob)
+		return -100;
+
+	struct blob_buf *params_buf = calloc(1, sizeof(*params_buf));
+
 	if (!params_buf) {
 		free(dup_blob);
 		return -100;
 	}
 
-	/*  TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
+	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
 	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	 * comes from another blob's table... here and so do we) */
+	 * comes from another blob's table... here and so do we)
+	 */
 	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb,
-			blobmsg_data(dup_blob), (unsigned)blobmsg_len(dup_blob));
+			blobmsg_data(dup_blob), (unsigned int)blobmsg_len(dup_blob));
 
 	int ret = 0;
+
 	for (int i = 0; i < (int)__RPC_U_MAX; ++i)
 		if (!tb[i])
 			ret = -i-1;
@@ -92,10 +95,11 @@ int ubusrpc_blob_call_parse_(struct ubusrpc_blob_call *ubusrpc, struct blob_attr
 
 	blob_buf_init(params_buf, 0);
 
-	/*  Copied into via foreach because tb[3] when added to doesn't work vi aubus.
+	/* Copied into via foreach because tb[3] when added to doesn't work vi aubus.
 	 * This works but maybe we can do better without the loop (add whole params
 	 * table at once), but how? (tried add_field add_blob ... <blob>???
-	 * (blobmsg_add_blob works for id which comes from object, this comes from arr) */
+	 * (blobmsg_add_blob works for id which comes from object, this comes from arr)
+	 */
 	blobmsg_for_each_attr(cur, tb[3], rem)
 		blobmsg_add_blob(params_buf, cur);
 
@@ -116,6 +120,7 @@ out:
 static void ubusrpc_blob_call_destroy(struct ubusrpc_blob *ubusrpc_)
 {
 	struct ubusrpc_blob_call *ubusrpc = container_of(ubusrpc_, struct ubusrpc_blob_call, _base);
+
 	blob_buf_free(ubusrpc->params_buf);
 	free(ubusrpc->params_buf);
 	ubusrpc_blob_destroy_default(&ubusrpc->_base);
@@ -123,7 +128,8 @@ static void ubusrpc_blob_call_destroy(struct ubusrpc_blob *ubusrpc_)
 
 struct ubusrpc_blob *ubusrpc_blob_call_parse(struct blob_attr *blob)
 {
-	struct ubusrpc_blob_call *ubusrpc = calloc(1, sizeof *ubusrpc);
+	struct ubusrpc_blob_call *ubusrpc = calloc(1, sizeof(*ubusrpc));
+
 	if (!ubusrpc)
 		return NULL;
 

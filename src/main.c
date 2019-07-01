@@ -87,7 +87,7 @@ static void usage(char *name)
 			" per-port options (apply to last port (-p))\n"
 			"  -L <label>       _owsd_listen label\n"
 			"  -i <interface>   interface to bind to (will create new vhost\n"
-			"                   if interface already specified for this port) \n"
+			"                   if interface already specified for this port)\n"
 			"  -o <origin> ...  origin url address to whitelist\n"
 			"  -O               disable owsd based url origins restriction\n"
 			"  -u <user> ...    restrict login to this rpcd user\n"
@@ -110,6 +110,7 @@ static void usage(char *name)
 void utimer_service(struct uloop_timeout *utimer)
 {
 	struct prog_context *prog = container_of(utimer, struct prog_context, utimer);
+
 	/* inform LWS that a second has passed */
 	lws_service_fd(prog->lws_ctx, NULL);
 	uloop_timeout_set(utimer, 1000);
@@ -117,12 +118,12 @@ void utimer_service(struct uloop_timeout *utimer)
 
 static void sigchld_handler(int signo)
 {
-	return;
 }
 
 static bool install_handler(int signum, void (*handler)(int))
 {
-	struct sigaction sa = {{0}};
+	struct sigaction sa = { {0} };
+
 	sa.sa_handler = handler;
 	sa.sa_flags = 0;
 	if (sigaction(signum, &sa, NULL) == -1) {
@@ -167,6 +168,7 @@ int main(int argc, char *argv[])
 	global_cfg.ubus_sock_path = WSD_DEF_UBUS_PATH;
 
 	int c;
+
 	while ((c = getopt(argc, argv,
 					/* global */
 #if WSD_HAVE_UBUS
@@ -181,7 +183,7 @@ int main(int argc, char *argv[])
 					"P:"
 #ifdef LWS_OPENSSL_SUPPORT
 					"C:K:A:"
-                    "R"
+					"R"
 #endif /* LWS_OPENSSL_SUPPORT */
 #endif /* WSD_HAVE_UBUSPROXY */
 					/* per-vhost */
@@ -206,6 +208,7 @@ int main(int argc, char *argv[])
 		case 't': {
 			char *error;
 			int secs = strtol(optarg, &error, 10);
+
 			if (*error) {
 				lwsl_err("Invalid maxage '%s' specified\n", optarg);
 				goto error;
@@ -255,6 +258,7 @@ int main(int argc, char *argv[])
 
 			const char *proto, *addr, *path;
 			int port;
+
 			if (lws_parse_uri(optarg, &proto, &addr, &port, &path)) {
 				lwsl_err("invalid connect URL for client\n");
 				goto error;
@@ -278,7 +282,7 @@ int main(int argc, char *argv[])
 		case 'A':
 			wsubus_client_set_ca_filepath(optarg);
 			break;
-        case 'R':
+		case 'R':
 			wsubus_client_set_rpcd_integration(true);
 			break;
 #endif
@@ -293,6 +297,7 @@ int main(int argc, char *argv[])
 			}
 			char *error;
 			int port = strtol(optarg, &error, 10);
+
 			if (*error) {
 				lwsl_err("Invalid port '%s' specified\n", optarg);
 				goto error;
@@ -303,13 +308,16 @@ int main(int argc, char *argv[])
 			break;
 		}
 			/* following options affect last added vhost
-			 * currvh (and assume there is one) */
+			 * currvh (and assume there is one)
+			 */
 		case 'i':
 			/* vhost can only have one interface assigned
-			 * create new vhost if iface for currvh is already assigned */
+			 * create new vhost if iface for currvh is already assigned
+			 */
 			if (currvh->vh_info.iface != NULL) {
 				lwsl_debug("-i on vhost that already has iface, using old port '%d' and name '%s' for new vhost\n", currvh->vh_info.port, currvh->vh_ctx.name);
 				struct vhinfo_list *oldvh = currvh;
+
 				rc = new_vhinfo_list(&currvh);
 				if (rc) {
 					lwsl_err("new_vhinfo_list failed memory alloc\n");
@@ -321,7 +329,8 @@ int main(int argc, char *argv[])
 			currvh->vh_info.iface = optarg;
 			break;
 		case 'o': {
-			struct str_list *str = malloc(sizeof *str);
+			struct str_list *str = malloc(sizeof(*str));
+
 			if (!str)
 				break;
 			str->str = optarg;
@@ -333,7 +342,8 @@ int main(int argc, char *argv[])
 			break;
 		}
 		case 'u': {
-			struct str_list *str = malloc(sizeof *str);
+			struct str_list *str = malloc(sizeof(*str));
+
 			if (!str)
 				break;
 			str->str = optarg;
@@ -345,11 +355,10 @@ int main(int argc, char *argv[])
 			break;
 #ifdef LWS_WITH_IPV6
 		case '6':
-			if (currvh->vh_info.options & LWS_SERVER_OPTION_DISABLE_IPV6) {
+			if (currvh->vh_info.options & LWS_SERVER_OPTION_DISABLE_IPV6)
 				currvh->vh_info.options &= ~LWS_SERVER_OPTION_DISABLE_IPV6;
-			} else {
+			else
 				currvh->vh_info.options |= LWS_SERVER_OPTION_IPV6_V6ONLY_MODIFY | LWS_SERVER_OPTION_IPV6_V6ONLY_VALUE;
-			}
 			break;
 #endif /* LWS_WITH_IPV6 */
 #ifdef LWS_OPENSSL_SUPPORT
@@ -408,6 +417,7 @@ ssl:
 	struct DBusConnection *dbus_ctx;
 	{
 		struct DBusError error;
+
 		dbus_error_init(&error);
 		dbus_ctx = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error);
 		if (!dbus_ctx || dbus_error_is_set(&error)) {
@@ -428,13 +438,15 @@ ssl:
 	lwsl_info("Will serve dir '%s' for HTTP\n", global_cfg.www_dirpath);
 
 	/* allocate file descriptor watchers
-	 * typically 1024, so a couple of KiBs just for pointers... */
+	 * typically 1024, so a couple of KiBs just for pointers...
+	 */
 	{
 		struct rlimit lim = {0, 0};
+
 		getrlimit(RLIMIT_NOFILE, &lim);
 		global.num_ufds = lim.rlim_cur;
 	}
-	global.ufds = calloc(global.num_ufds, sizeof(struct uloop_fd*));
+	global.ufds = calloc(global.num_ufds, sizeof(struct uloop_fd *));
 
 	/* switch to UTC for HTTP timestamp format */
 	setenv("TZ", "", 1);
@@ -456,6 +468,7 @@ ssl:
 	lwsl_debug("Creating lwsl context\n");
 
 	struct lws_context *lws_ctx = lws_create_context(&lws_info);
+
 	if (!lws_ctx) {
 		lwsl_err("lws_create_context error\n");
 		rc = 1;
@@ -473,7 +486,8 @@ ssl:
 
 	/* we tell lws to serve something that will always fail at
 	 * libwebsockets-level, so we can run our own HTTP serving with tweaks
-	 * TODO consider getting rid of our tweaks in favor of using lws ... */
+	 * TODO consider getting rid of our tweaks in favor of using lws ...
+	 */
 	static struct lws_http_mount wwwmount = {
 		NULL,
 		"/",
@@ -486,29 +500,29 @@ ssl:
 	wwwmount.mountpoint_len = strlen(wwwmount.mountpoint);
 	wwwmount.origin_protocol = LWSMPRO_FILE;
 
-  /* cgi environment variables */
-  const static struct lws_protocol_vhost_options cgienv4 = {
-    .name = "PATH",
-    .value = "/bin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/var/www/cgi-bin",
-  };
+	/* cgi environment variables */
+	const static struct lws_protocol_vhost_options cgienv4 = {
+		.name = "PATH",
+		.value = "/bin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/var/www/cgi-bin",
+	};
 
-  const static struct lws_protocol_vhost_options cgienv3 = {
-    .next = &cgienv4,
-    .name = "SCRIPT_NAME",
-    .value = "/cgi-bin/luci",
-  };
+	const static struct lws_protocol_vhost_options cgienv3 = {
+		.next = &cgienv4,
+		.name = "SCRIPT_NAME",
+		.value = "/cgi-bin/luci",
+	};
 
-  const static struct lws_protocol_vhost_options cgienv2 = {
-    .next = &cgienv3,
-    .name = "SCRIPT_FILENAME",
-    .value = "/www/cgi-bin/luci",
-  };
+	const static struct lws_protocol_vhost_options cgienv2 = {
+		.next = &cgienv3,
+		.name = "SCRIPT_FILENAME",
+		.value = "/www/cgi-bin/luci",
+	};
 
-  const static struct lws_protocol_vhost_options cgienv1 = {
-    .next = &cgienv2,
-    .name = "DOCUMENT_ROOT",
-    .value = "/www",
-  };
+	const static struct lws_protocol_vhost_options cgienv1 = {
+		.next = &cgienv2,
+		.name = "DOCUMENT_ROOT",
+		.value = "/www",
+	};
 
 	/* create mount for the CGI */
 	static struct lws_http_mount cgimount = {
@@ -519,6 +533,7 @@ ssl:
 		.cgi_timeout = 5000,
 		.origin_protocol = LWSMPRO_CGI,
 	};
+
 	cgimount.mountpoint_len = strlen(cgimount.mountpoint);
 
 	if (global_cfg.cgi_from && global_cfg.cgi_to) {
@@ -534,9 +549,8 @@ ssl:
 		c->vh_info.mounts = &cgimount;
 
 		/* tell SSL clients to include their certificate but don't fail if they don't */
-		if (c->vh_info.ssl_ca_filepath) {
+		if (c->vh_info.ssl_ca_filepath)
 			c->vh_info.options |= LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED | LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT;
-		}
 
 		lwsl_debug("create vhost for port %d with %s , c %s k %s\n", c->vh_info.port, (c->vh_info.options & LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT) ? "ssl" : "no ssl",
 				c->vh_info.ssl_cert_filepath, c->vh_info.ssl_private_key_filepath);
@@ -549,7 +563,8 @@ ssl:
 		}
 
 		/* per-vhost storage is lws-allocated,
-		 * allocate private memory for one pointer */
+		 * allocate private memory for one pointer
+		 */
 		unsigned long *pvh_context = lws_protocol_vh_priv_zalloc(vh,
 				&c->vh_info.protocols[1] /* ubus */, sizeof(unsigned long));
 
@@ -575,8 +590,10 @@ ssl:
 	/* free the per-vhost contexts */
 	for (struct vhinfo_list *c = currvh, *prev = NULL; c; prev = c, c = c->next, free(prev)) {
 		struct vh_context *vc = &c->vh_ctx;
+
 		if (vc && !list_empty(&vc->origins)) {
 			struct str_list *origin_el, *origin_tmp;
+
 			list_for_each_entry_safe(origin_el, origin_tmp, &vc->origins, list) {
 				list_del(&origin_el->list);
 				free(origin_el);
@@ -584,6 +601,7 @@ ssl:
 		}
 		if (vc && !list_empty(&vc->users)) {
 			struct str_list *user_el, *user_tmp;
+
 			list_for_each_entry_safe(user_el, user_tmp, &vc->users, list) {
 				list_del(&user_el->list);
 				free(user_el);

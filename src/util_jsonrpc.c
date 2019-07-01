@@ -20,9 +20,10 @@
 #include "util_jsonrpc.h"
 #include <libubox/blobmsg_json.h>
 
-char* jsonrpc__resp_error(struct blob_attr *id, int error_code, struct blob_attr *error_data)
+char *jsonrpc__resp_error(struct blob_attr *id, int error_code, struct blob_attr *error_data)
 {
 	struct blob_buf resp_buf = {};
+
 	blob_buf_init(&resp_buf, 0);
 
 	blobmsg_add_string(&resp_buf, "jsonrpc", "2.0");
@@ -49,13 +50,15 @@ char* jsonrpc__resp_error(struct blob_attr *id, int error_code, struct blob_attr
 	blobmsg_close_table(&resp_buf, obj_ticket);
 
 	char *ret = blobmsg_format_json(resp_buf.head, true);
+
 	blob_buf_free(&resp_buf);
 	return ret;
 }
 
-char* jsonrpc__resp_ubus(struct blob_attr *id, int ubus_rc, struct blob_attr *ret_data)
+char *jsonrpc__resp_ubus(struct blob_attr *id, int ubus_rc, struct blob_attr *ret_data)
 {
 	struct blob_buf resp_buf = {};
+
 	blob_buf_init(&resp_buf, 0);
 
 	blobmsg_add_string(&resp_buf, "jsonrpc", "2.0");
@@ -67,15 +70,16 @@ char* jsonrpc__resp_ubus(struct blob_attr *id, int ubus_rc, struct blob_attr *re
 	}
 
 	void *array_ticket = blobmsg_open_array(&resp_buf, "result");
+
 	blobmsg_add_u32(&resp_buf, "", (uint32_t)ubus_rc);
 
-	if (ret_data) {
-		blobmsg_add_field(&resp_buf, blobmsg_type(ret_data) == BLOBMSG_TYPE_ARRAY ? BLOBMSG_TYPE_ARRAY : BLOBMSG_TYPE_TABLE, "", blobmsg_data(ret_data), (unsigned)blobmsg_len(ret_data));
-	}
+	if (ret_data)
+		blobmsg_add_field(&resp_buf, blobmsg_type(ret_data) == BLOBMSG_TYPE_ARRAY ? BLOBMSG_TYPE_ARRAY : BLOBMSG_TYPE_TABLE, "", blobmsg_data(ret_data), (unsigned int)blobmsg_len(ret_data));
 
 	blobmsg_close_array(&resp_buf, array_ticket);
 
 	char *ret = blobmsg_format_json(resp_buf.head, true);
+
 	blob_buf_free(&resp_buf);
 	return ret;
 }

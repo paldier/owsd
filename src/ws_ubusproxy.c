@@ -46,7 +46,7 @@ static lws_callback_function ws_ubusproxy_cb;
 struct lws_protocols ws_ubusproxy_proto = {
 	WSUBUS_PROTO_NAME,
 	ws_ubusproxy_cb,
-	sizeof (struct wsu_peer),
+	sizeof(struct wsu_peer),
 	32768,	  /* arbitrary length */
 	0,	  /* - id */
 	NULL, /* - user pointer */
@@ -88,12 +88,13 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 			/* return -1; */
 		}
 			/* <<NOT ACCURATE FOR lws 3.1.0?>> returning -1 from here initialises a tear down of the connection,
-			 * and LWS_CALLBACK_CLOSED will be called */
+			 * and LWS_CALLBACK_CLOSED will be called
+			 */
 
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
 
-		/* client is leaving */
+	/* client is leaving */
 	case LWS_CALLBACK_CLIENT_CLOSED:
 	case LWS_CALLBACK_CLOSED:
 		ws_ubusproxy_client_teardown(wsi, peer);
@@ -115,12 +116,14 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 	/* proto init */
 	case LWS_CALLBACK_PROTOCOL_INIT: {
 		struct lws_vhost *vhost = lws_get_vhost(wsi);
+
 		if (!vhost) {
 			lwsl_err(" ERROR, no vhost found\n");
 			break;
 		}
 
 		int port = lws_get_vhost_port(vhost);
+
 		if (port == CONTEXT_PORT_NO_LISTEN)
 			wsubus_client_connect_all();
 
@@ -132,10 +135,14 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		break;
 
 	case LWS_CALLBACK_CLIENT_ESTABLISHED: {
+		char *d;
+		int rc;
+
 		if (wsubus_client_should_destroy(wsi))
 			return -1;
+
 		lwsl_info("connected as proxy\n");
-		int rc = wsu_peer_init(wsi, peer, WSUBUS_ROLE_REMOTE);
+		rc = wsu_peer_init(wsi, peer, WSUBUS_ROLE_REMOTE);
 		if (rc)
 			return -1;
 
@@ -144,28 +151,31 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		struct wsu_remote_bus *remote = &peer->u.remote;
 
 		remote->wsi = wsi;
-		memset(&remote->waiting_for, 0, sizeof remote->waiting_for);
+		memset(&remote->waiting_for, 0, sizeof(remote->waiting_for));
 		avl_init(&remote->stubs, avl_strcmp, false, NULL);
 
 		/* connect ubux proxy client to remote rpcd */
 		if (wsubus_client_get_rpcd_integration()) {
+			union lws_tls_cert_info_results info = {0};
+			size_t len = 64;
+			struct json_object *args_jobj;
+
 			if (!lws_is_ssl(wsi)) {
 				lwsl_err("can't login to remote ubus via TLS cert, SSL not enabled");
 				return 0;
 			}
-			union lws_tls_cert_info_results info = {0};
-			size_t len = 64;
 
-			int rc = lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_COMMON_NAME, &info, len);
+			rc = lws_tls_peer_cert_info(wsi, LWS_TLS_CERT_INFO_COMMON_NAME, &info, len);
 			if (rc) {
 				lwsl_err("wsi %p TLS cert does not exist\n", wsi);
 				return 0;
 			}
+
 			lwsl_debug("certifiate name: %s\n", info.ns.name);
 
-			json_object *args_jobj = json_object_new_object();
+			args_jobj = json_object_new_object();
 			json_object_object_add(args_jobj, "certificate", json_object_new_string(info.ns.name));
-			char *d = jsonrpc__req_ubuscall(++remote->call_id, NULL, "session", "login", args_jobj);
+			d = jsonrpc__req_ubuscall(++remote->call_id, NULL, "session", "login", args_jobj);
 			json_object_put(args_jobj);
 
 			remote->waiting_for.login = 1;
@@ -173,12 +183,15 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 			free(d);
 		} else {
 			/* we use a fake "session ID" which tells remote owsd server to check our cert
-			 * instead of rpcd sessions */
+			 * instead of rpcd sessions
+			 */
 			wsu_sid_update(peer, "X-tls-certificate");
 
 			/* start listening for all events
-			 * (do a `ubus listen *`) */
-			char *d = jsonrpc__req_ubuslisten(++remote->call_id, peer->sid, "*");
+			 * (do a `ubus listen *`)
+			 */
+			d = jsonrpc__req_ubuslisten(++remote->call_id, peer->sid, "*");
+
 			remote->waiting_for.listen = 1;
 			wsu_queue_write_str(wsi, d);
 			free(d);
@@ -193,31 +206,37 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 
 		/* TODO maybe reuse tokener per client
 		 * and/or support JSON messages across multiple RECEIVE callbacks ?
-		 * If so, consider integrating this rx path + parsing logic with the wsubus rx path */
+		 * If so, consider integrating this rx path + parsing logic with the wsubus rx path
+		 */
 
 		struct json_tokener *jtok = json_tokener_new();
 		struct json_object *jobj = json_tokener_parse_ex(jtok, in, len);
-
 		struct prog_context *prog = lws_context_user(lws_get_context(remote->wsi));
+		struct json_object *id_jobj, *tmp;
 
-		lwsl_notice("received, len %zu < %.*s > \n", len, len > 200 ? 200 : (int)len, (char *)in);
+		lwsl_notice("received, len %zu < %.*s >\n", len, len > 200 ? 200 : (int)len, (char *)in);
 
 		if (!jobj)
 			goto out;
 
-		json_object *id_jobj;
 		json_object_object_get_ex(jobj, "id", &id_jobj);
 
-		json_object *tmp;
 		if (json_object_object_get_ex(jobj, "result", &tmp)) {
 			/* result came back
 			 * process it depending on what state we are in
-			 * (what sort of reply we are waiting for) */
+			 * (what sort of reply we are waiting for)
+			 */
 			if (remote->waiting_for.login) {
+				char *d;
+
 				if (
-						json_object_is_type(tmp, json_type_array)
-						&& !json_object_get_int(json_object_array_get_idx(tmp, 0))
-						&& (tmp = json_object_array_get_idx(tmp, 1))
+						!json_object_is_type(tmp, json_type_array)
+						|| json_object_get_int(json_object_array_get_idx(tmp, 0)))
+					goto out;
+
+				tmp = json_object_array_get_idx(tmp, 1);
+				if (
+						tmp
 						&& json_object_object_get_ex(tmp, "ubus_rpc_session", &tmp)
 						&& json_object_is_type(tmp, json_type_string)) {
 					remote->waiting_for.login = 0;
@@ -229,11 +248,14 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 				}
 
 				/* valid response to login (contains ubus_rpc_session for us to use) */
-				char *d = jsonrpc__req_ubuslisten(++remote->call_id, peer->sid, "*");
+				d = jsonrpc__req_ubuslisten(++remote->call_id, peer->sid, "*");
+
 				remote->waiting_for.listen = 1;
 				wsu_queue_write_str(wsi, d);
 				free(d);
 			} else if (remote->waiting_for.listen) {
+				char *d;
+
 				/* we are expecting a response to `ubus listen` */
 				if (
 						json_object_is_type(tmp, json_type_array)
@@ -246,8 +268,9 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 				}
 
 				/* valid response to event came; now ask remote for ubus objects
-				 * (do a `ubus list *`) */
-				char *d = jsonrpc__req_ubuslist(++remote->call_id, peer->sid, "*");
+				 * (do a `ubus list *`)
+				 */
+				d = jsonrpc__req_ubuslist(++remote->call_id, peer->sid, "*");
 				remote->waiting_for.list_id = remote->call_id;
 				wsu_queue_write_str(wsi, d);
 				free(d);
@@ -255,27 +278,28 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 					&& json_object_is_type(id_jobj, json_type_int)
 					&& json_object_get_int(id_jobj) == remote->waiting_for.list_id) {
 				/* we are expecting a response to `ubus list` */
-				if (
-						json_object_is_type(tmp, json_type_array)
-						&& !json_object_get_int(json_object_array_get_idx(tmp, 0))
-						&& (tmp = json_object_array_get_idx(tmp, 1))
-						&& json_object_is_type(tmp, json_type_object)) {
+				if (!json_object_is_type(tmp, json_type_array) || json_object_get_int(json_object_array_get_idx(tmp, 0)))
+					goto out;
+
+				tmp = json_object_array_get_idx(tmp, 1);
+				if (tmp && json_object_is_type(tmp, json_type_object)) {
 					/* valid response to `ubus list` came back
-					 * now we have to register local stub objects corresponding to those from ubus list */
+					 * now we have to register local stub objects corresponding to those from ubus list
+					 */
 
 					/* Result of ubus list is sorted by name, as is our stub collection (avl tree).
-					 * We iterate through both collections and add what is missing from our stubs. */
+					 * We iterate through both collections and add what is missing from our stubs.
+					 */
 
 					int cmp_result = 1;
 					struct wsu_local_stub *cur = NULL, *last = avl_last_element(&remote->stubs, last, avl), *next;
-					{
-						json_object_object_foreach(tmp, obj_name, obj_methods) {
-							cur = avl_find_ge_element(&remote->stubs, obj_name, cur, avl);
-							if (cur)
-								cmp_result = remote->stubs.comp(cur->avl.key, obj_name, remote->stubs.cmp_ptr);
-							(void)obj_methods;
-							break;
-						}
+
+					json_object_object_foreach(tmp, key, val) {
+						cur = avl_find_ge_element(&remote->stubs, key, cur, avl);
+						if (cur)
+							cmp_result = remote->stubs.comp(cur->avl.key, key, remote->stubs.cmp_ptr);
+						(void)val;
+						break;
 					}
 
 					json_object_object_foreach(tmp, obj_name, obj_methods) {
@@ -291,7 +315,8 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 						if (cmp_result) {
 							/* we don't have that object proxied, create new
 							 * check filters in wsubus_client
-							 * add the object only if it has a match */
+							 * add the object only if it has a match
+							 */
 							if (!wsubus_client_match_pattern(obj_name))
 								continue;
 							lwsl_notice("create stub object for %s\n", obj_name);
@@ -303,7 +328,8 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 							cur = next;
 							/* TODO could avoid realloc here if wsu_local_stub_create is converted to caller-allocated
 							 * check filters in wsubus_client
-							 * add the object only if it has a match */
+							 * add the object only if it has a match
+							 */
 							if (!wsubus_client_match_pattern(obj_name))
 								continue;
 							lwsl_notice("create NEW stub object for %s\n", obj_name);
@@ -321,19 +347,22 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 			} else if (remote->waiting_for.call) {
 				/* we are expecting response to a call we are proxying from our stub object to remote owsd server */
 				int id;
-				struct wsu_proxied_call *p = NULL;
-				if (
-						json_object_is_type(id_jobj, json_type_int)
-						&& (id = json_object_get_int(id_jobj), 1) ) {
-					lwsl_notice("got response to call %d \n", id);
+				struct wsu_proxied_call *p = NULL, *tmp_p;
 
-					/* search for that ID in our remote's proxied_calls collection */
-					wsu_proxied_call_foreach(remote, p) {
-						if (p->jsonrpc_id == id) {
-							break;
-						} else {
-							p = NULL;
-						}
+				if (!json_object_is_type(id_jobj, json_type_int))
+					goto out;
+
+				id = json_object_get_int(id_jobj);
+				if (!id)
+					goto out;
+
+				lwsl_notice("got response to call %d\n", id);
+
+				/* search for that ID in our remote's proxied_calls collection */
+				wsu_proxied_call_foreach(remote, tmp_p) {
+					if (tmp_p->jsonrpc_id == id) {
+						p = tmp_p;
+						break;
 					}
 				}
 
@@ -345,25 +374,28 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 				/* will send response to found request */
 
 				/* send data if result contains any */
-				json_object *data_jobj;
-				if (
-						json_object_is_type(tmp, json_type_array)
-						&& (data_jobj = json_object_array_get_idx(tmp, 1))
-						&& json_object_is_type(data_jobj, json_type_object))  {
-					struct blob_buf b = {};
-					blob_buf_init(&b, 0);
-					blobmsg_add_object(&b, data_jobj);
-					ubus_send_reply(prog->ubus_ctx, &p->ureq, b.head);
-					blob_buf_free(&b);
-				}
+				if (json_object_is_type(tmp, json_type_array)) {
+					struct json_object *rc_jobj, *data_jobj;
 
-				/* send status code to resolve the pending request */
-				json_object *rc_jobj;
-				if (
-						json_object_is_type(tmp, json_type_array)
-						&& (rc_jobj = json_object_array_get_idx(tmp, 0))
-						&& json_object_is_type(rc_jobj, json_type_int)) {
-					ubus_complete_deferred_request(prog->ubus_ctx, &p->ureq, json_object_get_int(rc_jobj));
+					data_jobj = json_object_array_get_idx(tmp, 1);
+					if (
+							data_jobj
+							&& json_object_is_type(data_jobj, json_type_object))  {
+						struct blob_buf b = {};
+
+						blob_buf_init(&b, 0);
+						blobmsg_add_object(&b, data_jobj);
+						ubus_send_reply(prog->ubus_ctx, &p->ureq, b.head);
+						blob_buf_free(&b);
+					}
+
+					/* send status code to resolve the pending request */
+					rc_jobj = json_object_array_get_idx(tmp, 0);
+					if (
+							rc_jobj
+							&& json_object_is_type(rc_jobj, json_type_int)) {
+						ubus_complete_deferred_request(prog->ubus_ctx, &p->ureq, json_object_get_int(rc_jobj));
+					}
 				} else {
 					ubus_complete_deferred_request(prog->ubus_ctx, &p->ureq, UBUS_STATUS_UNKNOWN_ERROR);
 				}
@@ -372,9 +404,9 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 			}
 		} else if (json_object_object_get_ex(jobj, "method", &tmp)) {
 			/* call or event happened on local bus, we need to proxy it to remote owsd server */
-			json_object *type_jobj;
-			if (
-					!strcmp("event", json_object_get_string(tmp))
+			struct json_object *type_jobj;
+
+			if (!strcmp("event", json_object_get_string(tmp))
 					&& json_object_object_get_ex(jobj, "params", &tmp)
 					&& json_object_is_type(tmp, json_type_object)
 					&& json_object_object_get_ex(tmp, "type", &type_jobj)
@@ -382,37 +414,33 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 				/* event happened on local bus */
 
 				json_object_object_get_ex(tmp, "data", &tmp);
-				if (
-						!strcmp("ubus.object.add", json_object_get_string(type_jobj))
+				if (!strcmp("ubus.object.add", json_object_get_string(type_jobj))
 						&& json_object_object_get_ex(tmp, "path", &tmp)
 						&& json_object_is_type(tmp, json_type_string)) {
 					/* object was added on remote owsd's bus, look it up, when done, we'll add it */
+					char *d = jsonrpc__req_ubuslist(++remote->call_id, peer->sid, "*");
 
 					if (!remote->waiting_for.list_id) {
 						/* FIXME: because we can't wait for multiple lists */
 						lwsl_warn("calling list again...\n");
 					}
 
-					char *d = jsonrpc__req_ubuslist(++remote->call_id, peer->sid, "*");
 					remote->waiting_for.list_id = remote->call_id;
 					wsu_queue_write_str(wsi, d);
 					free(d);
-				} else if (
-						!strcmp("ubus.object.remove", json_object_get_string(type_jobj))
-						&& json_object_object_get_ex(tmp, "path", &tmp)
-						&& json_object_is_type(tmp, json_type_string)) {
+				} else if (!strcmp("ubus.object.remove", json_object_get_string(type_jobj))
+							&& json_object_object_get_ex(tmp, "path", &tmp)
+							&& json_object_is_type(tmp, json_type_string)) {
 					/* object removed, find and remove the matching stub */
-
 					struct wsu_local_stub *cur = avl_find_element(&remote->stubs, json_object_get_string(tmp), cur, avl);
+
 					if (cur) {
 						lwsl_notice("removing stub object for %s\n", (const char *)cur->avl.key);
 						wsu_local_stub_destroy(cur);
 					}
 				} else {
 					/* plain old event happened, just replay / proxy it on local bus */
-
 					const char *eventname = json_object_get_string(type_jobj);
-
 					struct wsu_local_proxied_event *event = wsu_local_proxied_event_create(remote, eventname, tmp);
 
 					if (!event) {
@@ -431,12 +459,12 @@ out:
 			json_object_put(jobj);
 
 		json_tokener_free(jtok);
-		
 		return 0;
 	}
 
 	default:
 		break;
 	}
+
 	return 0;
 }

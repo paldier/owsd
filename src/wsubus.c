@@ -47,7 +47,7 @@ static lws_callback_function wsubus_cb;
 struct lws_protocols wsubus_proto = {
 	WSUBUS_PROTO_NAME,
 	wsubus_cb,
-	sizeof (struct wsu_peer),
+	sizeof(struct wsu_peer),
 	32768,    /* arbitrary length */
 	0,    /* - id */
 	NULL, /* - user pointer */
@@ -73,7 +73,8 @@ static bool origin_allowed(struct list_head *origin_list, char *origin)
 	list_for_each_entry(str, origin_list, list) {
 		/* According to RFC4343, DNS names are "case insensitive".
 		 * Further, browsers generally send domain names converted
-		 * to lowercase letters. Thus match origin case-insensitively. */
+		 * to lowercase letters. Thus match origin case-insensitively.
+		 */
 		if (!fnmatch(str->str, origin, FNM_CASEFOLD))
 			return true;
 	}
@@ -88,8 +89,9 @@ static bool origin_allowed(struct list_head *origin_list, char *origin)
 static int wsubus_filter(struct lws *wsi)
 {
 	int len = lws_hdr_total_length(wsi, WSI_TOKEN_ORIGIN);
-	assert(len >= 0);
 	char *origin = malloc((size_t)len+1);
+
+	assert(len >= 0);
 
 	if (!origin) {
 		lwsl_err("error allocating origin header: %s\n", strerror(errno));
@@ -98,20 +100,20 @@ static int wsubus_filter(struct lws *wsi)
 	origin[len] = '\0';
 
 	int rc = 0;
-	int e;
-
-	struct vh_context *vc;
+	int e = lws_hdr_copy(wsi, origin, len + 1, WSI_TOKEN_ORIGIN);
+	struct vh_context *vc = *(struct vh_context **)lws_protocol_vh_priv_get(
+				lws_get_vhost(wsi),
+				lws_get_protocol(wsi));
 
 	if (len == 0) {
 		/* Origin can be faked by non-browsers, and browsers always send it.
-		 * This means we can let in non-web agents since they may lie about origin anyway. */
+		 * This means we can let in non-web agents since they may lie about origin anyway.
+		 */
 		rc = 0;
-	} else if ((e = lws_hdr_copy(wsi, origin, len + 1, WSI_TOKEN_ORIGIN)) < 0) {
+	} else if (e < 0) {
 		lwsl_err("error copying origin header %d\n", e);
 		rc = -3;
-	} else if (!(vc = *(struct vh_context**)lws_protocol_vh_priv_get(
-				lws_get_vhost(wsi),
-				lws_get_protocol(wsi)))) {
+	} else if (!vc) {
 		lwsl_err("no list of origins\n");
 		rc = -4;
 	} else if (vc->restrict_origins && !origin_allowed(&vc->origins, origin)) {
@@ -178,9 +180,11 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 	peer->u.client.rpc_q_len++;
 out:
 	/* send jsonrpc error code if we failed...
-	 * otherwise handler itself is in charge of sending reply */
+	 * otherwise handler itself is in charge of sending reply
+	 */
 	if (e) {
 		char *json_str = jsonrpc__resp_error(jsonrpc_req ? jsonrpc_req->id : NULL, e, NULL);
+
 		wsu_queue_write_str(wsi, json_str);
 		free(json_str);
 		if (ubusrpc_req) {
@@ -192,7 +196,6 @@ out:
 	}
 
 	free(jsonrpc_req);
-	return;
 }
 
 static void wsu_read_reset(struct wsu_peer *peer)
@@ -226,15 +229,18 @@ static void wsubus_rx_json(struct lws *wsi,
 		if (parsed_to == (int)len && jobj && json_object_is_type(jobj, json_type_object)) {
 			/* message is finished and parser has successfully parsed everything */
 			struct blob_buf blob = {};
+
 			blob_buf_init(&blob, 0);
 			blobmsg_add_object(&blob, jobj);
 			wsu_on_msg_from_client(wsi, blob.head);
 			blob_buf_free(&blob);
 		} else {
 			/* parse error -> we just ignore the message */
+			char *resp = jsonrpc__resp_error(NULL, JSONRPC_ERRORCODE__PARSE_ERROR, NULL);
+
 			lwsl_err("json parsing error %s, at char %d of %zu, dropping msg\n",
 					json_tokener_error_desc(tok_error), parsed_to, len);
-			char *resp = jsonrpc__resp_error(NULL, JSONRPC_ERRORCODE__PARSE_ERROR, NULL);
+
 			wsu_queue_write_str(wsi, resp);
 			free(resp);
 		}
@@ -242,12 +248,14 @@ static void wsubus_rx_json(struct lws *wsi,
 	} else {
 		if (tok_error != json_tokener_continue) {
 			/* parse error mid-message, client will send more data
-			 * For now we drop the client, but we could mark state and skip only this message */
+			 * For now we drop the client, but we could mark state and skip only this message
+			 */
 			lwsl_err("unexpected json parsing error %s\n", json_tokener_error_desc(tok_error));
 			lwsl_err("Dropping client\n");
 
 			/* TODO<lwsclose> check
-			 * stop reading and writing */
+			 * stop reading and writing
+			 */
 			shutdown(lws_get_socket_fd(wsi), SHUT_RDWR);
 		}
 	}
@@ -284,15 +292,15 @@ static void wsubus_rx(struct lws *wsi,
 				len + remaining_bytes_in_frame);
 
 		/* TODO<lwsclose> check
-		 * stop reading from mad client */
+		 * stop reading from mad client
+		 */
 		shutdown(lws_get_socket_fd(wsi), SHUT_RD);
 	}
 
-	if (lws_frame_is_binary(wsi)) {
+	if (lws_frame_is_binary(wsi))
 		wsubus_rx_blob(wsi, in, len);
-	} else {
+	else
 		wsubus_rx_json(wsi, in, len);
-	}
 }
 
 static int wsubus_cb(struct lws *wsi,
@@ -307,7 +315,7 @@ static int wsubus_cb(struct lws *wsi,
 		/* new client is connecting */
 	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		lwsl_notice(WSUBUS_PROTO_NAME ": client handshake...\n");
-		if (0 != wsubus_filter(wsi))
+		if (wsubus_filter(wsi) != 0)
 			return -1;
 		return 0;
 
@@ -320,7 +328,7 @@ static int wsubus_cb(struct lws *wsi,
 		/* read/write */
 	case LWS_CALLBACK_RECEIVE:
 		lwsl_notice(WSUBUS_PROTO_NAME ": protocol data received, len %zu\n", len);
-		wsubus_rx(wsi, (char*)in, len);
+		wsubus_rx(wsi, (char *)in, len);
 		break;
 
 	case LWS_CALLBACK_SERVER_WRITEABLE:
