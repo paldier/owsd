@@ -27,6 +27,18 @@
 #include <time.h>
 #include <libubus.h>
 
+/*  per-request context {{{ */
+struct wsubus_percall_ctx {
+	union {
+		struct ws_request_base;
+		struct ws_request_base _base;
+	};
+
+	struct ubusrpc_blob_call *call_args;
+	struct ubus_request *invoke_req;
+	struct wsubus_client_access_check_ctx access_check;
+};
+
 static void wsubus_percall_ctx_destroy(struct ws_request_base *base)
 {
 	struct wsubus_percall_ctx *call_ctx = container_of(base, struct wsubus_percall_ctx, _base);

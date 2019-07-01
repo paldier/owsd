@@ -213,7 +213,7 @@ static int ws_http_cb(struct lws *wsi,
 
 		return 0;
 	}
-		// deny websocket clients with default (no) subprotocol
+		/* deny websocket clients with default (no) subprotocol */
 	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		lwsl_notice("client handshaking without subproto - denying\n");
 		return 1;

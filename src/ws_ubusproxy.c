@@ -85,15 +85,15 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		if (wsubus_client_should_destroy(wsi)) {
 			ws_ubusproxy_client_teardown(wsi, peer);
 			break;
-			//return -1;
+			/* return -1; */
 		}
-			/* returning -1 from here initialises a tear down of the connection,
+			/* <<NOT ACCURATE FOR lws 3.1.0?>> returning -1 from here initialises a tear down of the connection,
 			 * and LWS_CALLBACK_CLOSED will be called */
 
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
 
-		// client is leaving
+		/* client is leaving */
 	case LWS_CALLBACK_CLIENT_CLOSED:
 	case LWS_CALLBACK_CLOSED:
 		ws_ubusproxy_client_teardown(wsi, peer);
@@ -112,7 +112,7 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		lwsl_notice(WSUBUS_PROTO_NAME ": peer closing\n");
 		return 0;
 
-		// proto init-destroy
+	/* proto init */
 	case LWS_CALLBACK_PROTOCOL_INIT: {
 		struct lws_vhost *vhost = lws_get_vhost(wsi);
 		if (!vhost) {
@@ -126,6 +126,7 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 
 		break;
 	}
+	/* proto destroy */
 	case LWS_CALLBACK_PROTOCOL_DESTROY:
 		lwsl_info(WSUBUS_PROTO_NAME ": destroy proto\n");
 		break;
