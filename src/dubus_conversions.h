@@ -35,7 +35,7 @@ bool duconv_msgiter_dbus_to_ubus_add_arg(
 		DBusMessageIter *msg_iter,
 		const char *arg_name);
 
-// TODO remove
+/* TODO remove */
 /** put converted arg_name: value directly into blob, must provide arg_name*/
 int duconv_msg_dbus_to_ubus(
 		struct blob_buf *b,

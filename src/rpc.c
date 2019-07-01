@@ -24,8 +24,8 @@
 #include "rpc.h"
 #include "util_jsonrpc.h"
 
-// FIXME RPCs should add themselves to list via macro / constructor magic,
-// instead of explicitly listing them to add them in list of supported RPCs
+/* FIXME RPCs should add themselves to list via macro / constructor magic,
+ * instead of explicitly listing them to add them in list of supported RPCs */
 #include "rpc_call.h"
 #include "rpc_list.h"
 #include "rpc_sub.h"
@@ -46,12 +46,12 @@ int jsonrpc_blob_req_parse(struct jsonrpc_blob_req *req, const struct blob_attr 
 
 	struct blob_attr *tb[__RPC_MAX];
 
-	// TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
-	// and which is right here? (uhttpd ubus uses blob_.. for blob made with
-	// blobmsg_add_object and so do we)
+	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
+	 * and which is right here? (uhttpd ubus uses blob_.. for blob made with
+	 * blobmsg_add_object and so do we) */
 	blobmsg_parse(rpc_policy, __RPC_MAX, tb, blob_data(blob), blob_len(blob));
 
-	// set ID always, we need to return it even if error in parsing other fields
+	/* set ID always, we need to return it even if error in parsing other fields */
 	req->id = tb[RPC_ID];
 	if (!tb[RPC_JSONRPC])
 		return -1;
@@ -90,7 +90,7 @@ struct ubusrpc_blob* ubusrpc_blob_parse(const char *method, struct blob_attr *pa
 		{ "list", ubusrpc_blob_list_parse, ubusrpc_handle_list },
 		{ "subscribe", ubusrpc_blob_sub_parse, ubusrpc_handle_sub },
 		{ "subscribe-list", ubusrpc_blob_sub_list_parse, ubusrpc_handle_sub_list },
-		{ "unsubscribe", ubusrpc_blob_sub_parse, ubusrpc_handle_unsub }, // parse is same as sub since args same
+		{ "unsubscribe", ubusrpc_blob_sub_parse, ubusrpc_handle_unsub }, /* parse is same as sub since args same */
 	};
 	enum jsonrpc_error_code e;
 	struct ubusrpc_blob *ret;

@@ -133,11 +133,11 @@ static void wsd_introspect_cb(DBusPendingCall *call, void *data)
 	bool sub_only = false;
 	if (!name) {
 		sub_only = true;
-		// TODO
+		/* TODO */
 	}
 	if (!check_reply_and_make_error(reply, "s", NULL)) {
 		lwsl_warn("DBus Introspected svc %s obj %s with error, skipping\n", cur->service, cur->path);
-		// we ignore the error and skip this service
+		/* we ignore the error and skip this service */
 		goto next_service;
 	}
 
@@ -178,7 +178,7 @@ static void wsd_introspect_cb(DBusPendingCall *call, void *data)
 			xmlFree(node_name);
 			continue;
 		} else if (xmlStrcmp(subnode->name, (xmlChar*)"interface") || sub_only) {
-			// skip unknown node type
+			/* skip unknown node type */
 			continue;
 		}
 
@@ -240,7 +240,7 @@ static void wsd_introspect_cb(DBusPendingCall *call, void *data)
 						blobmsg_add_string(&ctx->retbuf, arg_name, typestr);
 					}
 
-					//lwsl_warn("### %s   %-20s %s type=%s name=%s\n", is_signal ? "signal" : "method", m_name, arg_is_out ? "ret" : "arg", arg_type, arg_name ? arg_name : "?");
+					/*lwsl_warn("### %s   %-20s %s type=%s name=%s\n", is_signal ? "signal" : "method", m_name, arg_is_out ? "ret" : "arg", arg_type, arg_name ? arg_name : "?"); */
 
 					xmlFree(arg_type);
 					xmlFree(arg_name);
@@ -263,7 +263,7 @@ static void wsd_introspect_cb(DBusPendingCall *call, void *data)
 				} else {
 				}
 
-				//lwsl_warn("### property %-20s type=%s\n", m_name, m_type);
+				/*lwsl_warn("### property %-20s type=%s\n", m_name, m_type); */
 
 				xmlFree(m_access);
 				xmlFree(m_type);

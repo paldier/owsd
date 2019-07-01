@@ -51,7 +51,7 @@ enum connection_state {
 	CONNECTION_STATE_TEARINGDOWN
 };
 
-// the vhost for clients has list of client infos so they can be reconnected
+/* the vhost for clients has list of client infos so they can be reconnected */
 struct clvh_context {
 	bool enabled; /* enable WS ubus client proxy functionality */
 	struct list_head clients; /* list of clients to proxy */

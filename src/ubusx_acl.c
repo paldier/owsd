@@ -81,7 +81,7 @@ void ubusx_acl__add_object(char *object)
 		methods[1] = '\0';
 		methods += 2;
 		lwsl_notice("methods = \"%s\"\n", methods);
-		// add methods in methods_avl, TODO
+		/* add methods in methods_avl, TODO */
 	}
 
 	node = calloc(1, sizeof(*node));

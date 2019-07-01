@@ -105,8 +105,8 @@ static void wsubus_unsub_elem(struct ws_request_base *elem_)
 static int ubusrpc_blob_sub_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob_attr *blob)
 {
 	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
-		[0] = { .type = BLOBMSG_TYPE_STRING }, // ubus-session id
-		[1] = { .type = BLOBMSG_TYPE_STRING }, // ubus-object
+		[0] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-session id */
+		[1] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-object */
 	};
 	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
 	struct blob_attr *tb[__RPC_U_MAX];
@@ -116,9 +116,9 @@ static int ubusrpc_blob_sub_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob
 		return -100;
 	}
 
-	// TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
-	// and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	// comes from another blob's table... here and so do we)
+	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
+	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
+	 * comes from another blob's table... here and so do we) */
 	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(dup_blob), (unsigned)blobmsg_len(dup_blob));
 
 	if (!tb[0]) {
@@ -154,14 +154,14 @@ struct ubusrpc_blob* ubusrpc_blob_sub_parse(struct blob_attr *blob)
 int ubusrpc_blob_sub_list_parse_(struct ubusrpc_blob_sub *ubusrpc, struct blob_attr *blob)
 {
 	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
-		[0] = { .type = BLOBMSG_TYPE_STRING }, // ubus-session id
+		[0] = { .type = BLOBMSG_TYPE_STRING }, /* ubus-session id */
 	};
 	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
 	struct blob_attr *tb[__RPC_U_MAX];
 
-	// TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
-	// and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	// comes from another blob's table... here and so do we)
+	/* TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
+	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
+	 * comes from another blob's table... here and so do we) */
 	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb, blobmsg_data(blob), (unsigned)blobmsg_len(blob));
 
 	if (!tb[0])
@@ -194,16 +194,16 @@ int ubusrpc_handle_sub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct bl
 	struct wsu_client_session *client = wsi_to_client(wsi);
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 
-	// create entry
+	/* create entry */
 	struct ws_sub_info_ubus *subinfo = malloc(sizeof *subinfo);
 	if (!subinfo) {
 		lwsl_err("alloc subinfo error\n");
-		ret = 9; // FIXME this is UBUS_STATUS_NO_DATA, should have our enum
+		ret = 9; /* FIXME this is UBUS_STATUS_NO_DATA, should have our enum */
 		goto out;
 	}
 
 #if WSD_HAVE_UBUS
-	// register handler on ubus
+	/* register handler on ubus */
 	subinfo->ubus_handler = (struct ubus_event_handler){};
 	ret = ubus_register_event_handler(prog->ubus_ctx, &subinfo->ubus_handler, ubusrpc->pattern);
 
@@ -218,18 +218,18 @@ int ubusrpc_handle_sub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct bl
 
 	subinfo->id = NULL;
 	subinfo->sub = ubusrpc;
-	// subinfo->ubus_handler inited above in ubus_register_...
+	/* subinfo->ubus_handler inited above in ubus_register_... */
 	subinfo->wsi = wsi;
 
 #if WSD_HAVE_DBUS
-	// turn on the global signal handler if this is first time we watch for events
+	/* turn on the global signal handler if this is first time we watch for events */
 	if (list_empty(&listen_list)) {
 		dbus_bus_add_match(prog->dbus_ctx, "type='signal'", NULL);
 		dbus_connection_add_filter(prog->dbus_ctx, ws_sub_cb_dbus, NULL, NULL);
 	}
 #endif
 
-	// add entry to list
+	/* add entry to list */
 	list_add_tail(&subinfo->list, &listen_list);
 	list_add_tail(&subinfo->cq, &client->rpc_call_q);
 	subinfo->cancel_and_destroy = wsubus_unsub_elem;
@@ -271,14 +271,14 @@ DBusHandlerResult ws_sub_cb_dbus(DBusConnection *bus, DBusMessage *msg, void *da
 	const char *type = dbus_message_get_member(msg);
 	lwsl_notice("dbus event %s happened\n", type);
 
-	// find matching entry in list
+	/* find matching entry in list */
 	{
 		struct ws_sub_info_ubus *elem, *tmp;
 		list_for_each_entry_safe(elem, tmp, &listen_list, list) {
 			if (fnmatch(elem->sub->pattern, type, 0))
 				continue;
 
-			// prepare RPC event notification
+			/* prepare RPC event notification */
 			struct blob_buf resp_buf = {};
 			blob_buf_init(&resp_buf, 0);
 			blobmsg_add_string(&resp_buf, "jsonrpc", "2.0");
@@ -289,7 +289,7 @@ DBusHandlerResult ws_sub_cb_dbus(DBusConnection *bus, DBusMessage *msg, void *da
 			void *tkt = blobmsg_open_table(&resp_buf, "params");
 			blobmsg_add_string(&resp_buf, "type", type);
 
-			// convert event name/data
+			/* convert event name/data */
 			struct duconv_convert c;
 			duconv_convert_init(&c, "arg%d");
 			DBusMessageIter iter;
@@ -335,14 +335,14 @@ int ubusrpc_handle_sub_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, stru
 	if (ret) {
 		response_str = jsonrpc__resp_ubus(id, ret, NULL);
 	} else {
-		// using blobmsg_data here to pass only array part of blobmsg
+		/* using blobmsg_data here to pass only array part of blobmsg */
 		response_str = jsonrpc__resp_ubus(id, 0, blobmsg_data(sub_list_blob.head));
 		blob_buf_free(&sub_list_blob);
 	}
 
 	wsu_queue_write_str(wsi, response_str);
 
-	// free memory
+	/* free memory */
 	free(response_str);
 	free(ubusrpc->src_blob);
 	free(ubusrpc);
@@ -361,7 +361,7 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 		ret = 1;
 		struct ws_sub_info_ubus *elem, *tmp;
 		list_for_each_entry_safe(elem, tmp, &listen_list, list) {
-			// check pattern
+			/* check pattern */
 			if (elem->wsi == wsi && !strcmp(ubusrpc->pattern, elem->sub->pattern)) {
 				list_del(&elem->cq);
 				wsubus_unsub_elem(&elem->_base);
@@ -371,7 +371,7 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 	}
 
 	if (ret != 0)
-		ret = 5; // FIXME this is UBUS_STATUS_NOT_FOUND, should have our enum
+		ret = 5; /* FIXME this is UBUS_STATUS_NOT_FOUND, should have our enum */
 
 	response = jsonrpc__resp_ubus(id, ret, NULL);
 	wsu_queue_write_str(wsi, response);

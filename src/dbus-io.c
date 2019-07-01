@@ -24,18 +24,18 @@ struct wsd_udispatch {
 static void wsd_trigger_timer(struct uloop_timeout *utimer)
 {
 	struct wsd_utimer *wsd = container_of(utimer, struct wsd_utimer, utimer);
-	// save timeout since timeout_handle will clear wsd->dtimer
+	/* save timeout since timeout_handle will clear wsd->dtimer */
 	DBusTimeout *timeout = wsd->dtimer;
 	dbus_timeout_handle(timeout);
 	if (wsd->dtimer) {
-		// only set timer if we werent deleted inside timeout_handle -> del_timeout
+		/* only set timer if we werent deleted inside timeout_handle -> del_timeout */
 		uloop_timeout_set(&wsd->utimer, dbus_timeout_get_interval(timeout));
 	}
 }
 
 static dbus_bool_t wsd_add_timeout(DBusTimeout *timeout, void *data)
 {
-	//struct prog_context *global = data;
+	/* struct prog_context *global = data; */
 	struct wsd_utimer *wsd = NULL;
 	for (size_t i = 0; i < ARRAY_SIZE(timers); ++i)
 		if (!timers[i].dtimer) {
@@ -155,7 +155,7 @@ static void wsd_del_fd(DBusWatch *timeout, void *data)
 static void wsd_trigger_dispatch(struct uloop_timeout *udefer)
 {
 	do {
-		//
+		/* */
 	} while (dbus_connection_dispatch(dispatch.dbus) == DBUS_DISPATCH_DATA_REMAINS);
 }
 
@@ -181,6 +181,6 @@ void wsd_dbus_add_to_uloop(DBusConnection *dbus_ctx)
 	dbus_connection_set_dispatch_status_function(dbus_ctx, wsd_dispatch_cb,
 			NULL, NULL);
 
-	// manually poke dbus in case we have dispatch to do from before we were attached to loop
+	/* manually poke dbus in case we have dispatch to do from before we were attached to loop */
 	wsd_dispatch_cb(dbus_ctx, dbus_connection_get_dispatch_status(dbus_ctx), NULL);
 }

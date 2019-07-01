@@ -52,7 +52,7 @@
 #define WSD_DEF_WWW_MAXAGE 0
 #endif
 
-// list of per-vhost creation_info structs, with custom per-vhost storage
+/* list of per-vhost creation_info structs, with custom per-vhost storage */
 struct vhinfo_list {
 	struct lws_context_creation_info vh_info;
 	struct vhinfo_list *next;
@@ -81,7 +81,7 @@ static void usage(char *name)
 			"  -K <cert_path>   SSL client key path\n"
 			"  -A <ca_file>     SSL CA file path trusted by client\n"
 			"  -R               Connect ubus proxy with remote rpcd, authenticating over certificate\n"
-#endif // LWS_OPENSSL_SUPPORT
+#endif /* LWS_OPENSSL_SUPPORT */
 #endif
 			"\n"
 			"  -p <port> ...    port number (repeat for multiple):\n"
@@ -93,12 +93,12 @@ static void usage(char *name)
 			"  -u <user> ...    restrict login to this rpcd user\n"
 #ifdef LWS_WITH_IPV6
 			"  -6               enable IPv6, repeat to disable IPv4 [off]\n"
-#endif // LWS_WITH_IPV6
+#endif /* LWS_WITH_IPV6 */
 #ifdef LWS_OPENSSL_SUPPORT
 			"  -c <cert_path>   SSL cert path if SSL wanted\n"
 			"  -k <key_path>    SSL key path if SSL wanted\n"
 			"  -a <ca_file>     path to SSL CA file that makes clients trusted\n"
-#endif // LWS_OPENSSL_SUPPORT
+#endif /* LWS_OPENSSL_SUPPORT */
 			"  -X <ubusobject>[->method][,...]\n"
 			"                   ACL list controlling wich local ubus objects are\n"
 			"                   allowed to be exported to remote ubuses/ubux\n"
@@ -110,7 +110,7 @@ static void usage(char *name)
 void utimer_service(struct uloop_timeout *utimer)
 {
 	struct prog_context *prog = container_of(utimer, struct prog_context, utimer);
-	// inform LWS that a second has passed
+	/* inform LWS that a second has passed */
 	lws_service_fd(prog->lws_ctx, NULL);
 	uloop_timeout_set(utimer, 1000);
 }
@@ -148,7 +148,7 @@ static int new_vhinfo_list(struct vhinfo_list **currvh)
 	newvh->vh_ctx.name = "";
 	newvh->vh_info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
 
-	// add this listening vhost into our list
+	/* add this listening vhost into our list */
 	newvh->next = *currvh;
 	*currvh = newvh;
 error:
@@ -194,10 +194,10 @@ int main(int argc, char *argv[])
 					"p:i:o:L:u:"
 #ifdef LWS_WITH_IPV6
 					"6"
-#endif // LWS_WITH_IPV6
+#endif /* LWS_WITH_IPV6 */
 #ifdef LWS_OPENSSL_SUPPORT
 					"c:k:a:"
-#endif // LWS_OPENSSL_SUPPORT
+#endif /* LWS_OPENSSL_SUPPORT */
 					"X:"
 					)) != -1) {
 		switch (c) {
@@ -238,7 +238,7 @@ int main(int argc, char *argv[])
 			cgi_from = optarg;
 			break;
 
-			// client
+			/* client */
 #if WSD_HAVE_UBUSPROXY
 		case 'U':
 			lwsl_notice("PARSING OPTION U\n");
@@ -249,10 +249,10 @@ int main(int argc, char *argv[])
 			break;
 		case 'F':
 			lwsl_notice("PARSING OPTION F\n");
-			//ubusx_prefix = UBUSX_PREFIX_IP;
+			/* ubusx_prefix = UBUSX_PREFIX_IP; */
 			if (optarg)
 				if (strncmp(optarg, "mac", 4) == 0)
-					ubusx_prefix = 1;//UBUSX_PREFIX_MAC;
+					ubusx_prefix = 1; /* UBUSX_PREFIX_MAC; */
 			break;
 		case 'P': {
 
@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
 			break;
 		}
 #ifdef LWS_OPENSSL_SUPPORT
-			// following options tweak options for connecting as proxy
+			/* following options tweak options for connecting as proxy */
 		case 'C':
 			wsubus_client_set_cert_filepath(optarg);
 			break;
@@ -285,9 +285,9 @@ int main(int argc, char *argv[])
 			wsubus_client_set_rpcd_integration(true);
 			break;
 #endif
-#endif // WSD_HAVE_UBUSPROXY
+#endif /* WSD_HAVE_UBUSPROXY */
 
-			// vhost
+		/* vhost */
 		case 'p': {
 			rc = new_vhinfo_list(&currvh);
 			if (rc) {
@@ -305,13 +305,13 @@ int main(int argc, char *argv[])
 
 			break;
 		}
-			// following options affect last added vhost
-			// currvh (and assume there is one)
+			/* following options affect last added vhost
+			 * currvh (and assume there is one) */
 		case 'i':
-			// vhost can only have one interface assigned
-			// create new vhost if iface for currvh is already assigned
+			/* vhost can only have one interface assigned
+			 * create new vhost if iface for currvh is already assigned */
 			if (currvh->vh_info.iface != NULL) {
-				lwsl_notice("-i on vhost that already has iface, using old port '%d' and name '%s' for new vhost\n", currvh->vh_info.port, currvh->vh_ctx.name);
+				lwsl_debug("-i on vhost that already has iface, using old port '%d' and name '%s' for new vhost\n", currvh->vh_info.port, currvh->vh_ctx.name);
 				struct vhinfo_list *oldvh = currvh;
 				rc = new_vhinfo_list(&currvh);
 				if (rc) {
@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
 				currvh->vh_info.options |= LWS_SERVER_OPTION_IPV6_V6ONLY_MODIFY | LWS_SERVER_OPTION_IPV6_V6ONLY_VALUE;
 			}
 			break;
-#endif // LWS_WITH_IPV6
+#endif /* LWS_WITH_IPV6 */
 #ifdef LWS_OPENSSL_SUPPORT
 		case 'c':
 			currvh->vh_info.ssl_cert_filepath = optarg;
@@ -366,7 +366,7 @@ ssl:
 			any_ssl = true;
 			currvh->vh_info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
 			break;
-#endif // LWS_OPENSSL_SUPPORT
+#endif /* LWS_OPENSSL_SUPPORT */
 
 		case 'X':
 			lwsl_notice("ubusx ACL: \"%s\"\n", optarg);
@@ -390,7 +390,7 @@ ssl:
 
 	uloop_init();
 
-	// connect to bus(es)
+	/* connect to bus(es) */
 
 #if WSD_HAVE_UBUS
 	struct ubus_context *ubus_ctx = ubus_connect(ubus_sock_path);
@@ -426,8 +426,8 @@ ssl:
 
 	lwsl_info("Will serve dir '%s' for HTTP\n", www_dirpath);
 
-	// allocate file descriptor watchers
-	// typically 1024, so a couple of KiBs just for pointers...
+	/* allocate file descriptor watchers
+	 * typically 1024, so a couple of KiBs just for pointers... */
 	{
 		struct rlimit lim = {0, 0};
 		getrlimit(RLIMIT_NOFILE, &lim);
@@ -435,12 +435,12 @@ ssl:
 	}
 	global.ufds = calloc(global.num_ufds, sizeof(struct uloop_fd*));
 
-	// switch to UTC for HTTP timestamp format
+	/* switch to UTC for HTTP timestamp format */
 	setenv("TZ", "", 1);
 	setlocale(LC_TIME, "C");
 	tzset();
 
-	// lws context constructor under which are all vhosts
+	/* lws context constructor under which are all vhosts */
 	struct lws_context_creation_info lws_info = {};
 
 	lws_info.uid = -1;
@@ -461,20 +461,20 @@ ssl:
 
 	global.lws_ctx = lws_ctx;
 
-	// these protocols and the wwwmount are connected to all vhosts
+	/* these protocols and the wwwmount are connected to all vhosts */
 	struct lws_protocols ws_protocols[] = {
 		ws_http_proto,
 		wsubus_proto,
 		{ }
 	};
 
-	// we tell lws to serve something that will always fail at
-	// libwebsockets-level, so we can run our own HTTP serving with tweaks
-	// TODO consider getting rid of our tweaks in favor of using lws ...
+	/* we tell lws to serve something that will always fail at
+	 * libwebsockets-level, so we can run our own HTTP serving with tweaks
+	 * TODO consider getting rid of our tweaks in favor of using lws ... */
 	static struct lws_http_mount wwwmount = {
 		NULL,
 		"/",
-		"/dev/null",   // anything not-a-dir is ok, so our HTTP code runs and not lws
+		"/dev/null", /* anything not-a-dir is ok, so our HTTP code runs and not lws */
 		"index.html"
 	};
 	wwwmount.cache_reusable = !!www_maxage;
@@ -483,7 +483,7 @@ ssl:
 	wwwmount.mountpoint_len = strlen(wwwmount.mountpoint);
 	wwwmount.origin_protocol = LWSMPRO_FILE;
 
-  // cgi environment variables
+  /* cgi environment variables */
   const static struct lws_protocol_vhost_options cgienv4 = {
     .name = "PATH",
     .value = "/bin:/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/var/www/cgi-bin",
@@ -507,7 +507,7 @@ ssl:
     .value = "/www",
   };
 
-	// create mount for the CGI
+	/* create mount for the CGI */
 	static struct lws_http_mount cgimount = {
 		.mount_next = &wwwmount,
 		.mountpoint = "/cgi-bin/luci",
@@ -524,13 +524,13 @@ ssl:
 		cgimount.origin = cgi_to;
 	}
 
-	// create all listening vhosts
+	/* create all listening vhosts */
 	for (struct vhinfo_list *c = currvh; c; c = c->next) {
 		c->vh_info.protocols = ws_protocols;
 
 		c->vh_info.mounts = &cgimount;
 
-		// tell SSL clients to include their certificate but don't fail if they don't
+		/* tell SSL clients to include their certificate but don't fail if they don't */
 		if (c->vh_info.ssl_ca_filepath) {
 			c->vh_info.options |= LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED | LWS_SERVER_OPTION_REQUIRE_VALID_OPENSSL_CLIENT_CERT;
 		}
@@ -545,8 +545,8 @@ ssl:
 			continue;
 		}
 
-		// per-vhost storage is lws-allocated
-		/* allocate private memory for one pointer */
+		/* per-vhost storage is lws-allocated,
+		 * allocate private memory for one pointer */
 		unsigned long *pvh_context = lws_protocol_vh_priv_zalloc(vh,
 				&c->vh_info.protocols[1] /* ubus */, sizeof(unsigned long));
 
@@ -569,7 +569,7 @@ ssl:
 	wsubus_client_clean();
 #endif
 
-	// free the per-vhost contexts
+	/* free the per-vhost contexts */
 	for (struct vhinfo_list *c = currvh, *prev = NULL; c; prev = c, c = c->next, free(prev)) {
 		struct vh_context *vc = &c->vh_ctx;
 		if (vc && !list_empty(&vc->origins)) {

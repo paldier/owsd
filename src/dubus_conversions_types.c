@@ -261,7 +261,7 @@ int duconv_msg_ubus_to_dbus(
 			struct blob_attr *it; unsigned int rem;
 			struct blob_attr *first = NULL;
 
-			// check that elements have same signature
+			/* check that elements have same signature */
 			blobmsg_for_each_attr(it, cur_arg, rem) {
 				if (!first) {
 					first = it;
@@ -277,7 +277,7 @@ int duconv_msg_ubus_to_dbus(
 
 			int dbus_elem_type = DBUS_TYPE_INVALID;
 
-			// set elem type from either the elems themselves or from hint if empty
+			/* set elem type from either the elems themselves or from hint if empty */
 			if (first) {
 				dbus_elem_type = _duconv_msg_ubus_to_dbus_basic(NULL, first, wanted_sig_iter ? &wanted_elem_sig_iter : NULL);
 			} else if(wanted_sig_iter) {
@@ -287,9 +287,9 @@ int duconv_msg_ubus_to_dbus(
 			if (dbus_elem_type == DBUS_TYPE_INVALID)
 				return DBUS_TYPE_INVALID;
 
-			// type has been determined, append the data
+			/* type has been determined, append the data */
 			if (out_iter) {
-				// FIXME these sort of hacks go out the window for recursion
+				/* FIXME these sort of hacks go out the window for recursion */
 				char dbus_elem_sig[2] = { dbus_elem_type, DBUS_TYPE_INVALID };
 				DBusMessageIter out_elem_iter;
 				dbus_message_iter_open_container(out_iter, dbus_type, dbus_elem_sig, &out_elem_iter);

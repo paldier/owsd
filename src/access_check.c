@@ -46,7 +46,7 @@ enum wsu_ext_result {
 
 static enum wsu_ext_result wsu_ext_check_interface(struct lws *wsi)
 {
-	// TODO implement, to support case where a vhost (interface) doesn't require login
+	/* TODO implement, to support case where a vhost (interface) doesn't require login */
 	return EXT_CHECK_NEXT;
 }
 
@@ -88,7 +88,7 @@ static enum wsu_ext_result wsu_ext_restrict_interface(struct lws *wsi,
  */
 static enum wsu_ext_result wsu_ext_check_tls(struct lws *wsi, const char *object)
 {
-	// return DEFAULT since next auth check may allow this session
+	/* return DEFAULT since next auth check may allow this session */
 	enum wsu_ext_result res = EXT_CHECK_DENY;
 
 	if (!lws_is_ssl(wsi)) {
@@ -186,7 +186,7 @@ static void wsubus_access_check__cb(struct ubus_request *ureq, int status)
 {
 	struct wsubus_access_check_req *req = container_of(ureq, struct wsubus_access_check_req, ubus_req);
 
-	// is ureq->status_code or status (the arg) what we want?
+	/* is ureq->status_code or status (the arg) what we want? */
 	req->cb(req, req->ctx, req->result && status == UBUS_STATUS_OK);
 }
 
@@ -207,7 +207,7 @@ static int wsubus_access_check_via_session(
 {
 	unsigned rem;
 	struct blob_attr *cur;
-	// does not allow ubus_rpc_session arg in params, as we will add it
+	/* does not allow ubus_rpc_session arg in params, as we will add it */
 	if (args) {
 		blob_for_each_attr(cur, args->head, rem) {
 			if (!strcmp("ubus_rpc_session", blobmsg_name(cur)))
@@ -218,12 +218,12 @@ static int wsubus_access_check_via_session(
 	int ret;
 	uint32_t access_id;
 
-	// look up ubus object names "session"
+	/* look up ubus object names "session" */
 	if (ubus_lookup_id(ubus_ctx, "session", &access_id) != UBUS_STATUS_OK) {
 		goto fail;
 	}
 
-	// construct call
+	/* construct call */
 	struct blob_buf blob_for_access = {};
 	blob_buf_init(&blob_for_access, 0);
 
@@ -235,9 +235,9 @@ static int wsubus_access_check_via_session(
 		blobmsg_add_string(&blob_for_access, "scope", scope);
 	if (args) {
 		blobmsg_add_string(args, "ubus_rpc_session", sid);
-		// we give the session object parameters "params" in hope some day
-		// session object will actually be able to check arguments and not just
-		// object/method names
+		/* we give the session object parameters "params" in hope some day
+		 * session object will actually be able to check arguments and not just
+		 * object/method names */
 		blobmsg_add_field(&blob_for_access, BLOBMSG_TYPE_TABLE, "params", blobmsg_data(args->head), blobmsg_len(args->head));
 	}
 
@@ -262,7 +262,7 @@ fail_mem_blob:
 fail:
 	return -1;
 }
-#endif // WSD_HAVE_UBUS
+#endif /* WSD_HAVE_UBUS */
 
 static void deferral_cb(struct uloop_timeout *t) {
 	struct wsubus_access_check_req *req = container_of(t, struct wsubus_access_check_req, defer_timer);
@@ -274,7 +274,7 @@ static int defer_callback(
 		struct wsubus_access_check_req *req,
 		void *ctx, bool result)
 {
-	// write result and make a timeout to call callback on next iteration of event loop
+	/* write result and make a timeout to call callback on next iteration of event loop */
 	req->tag = REQ_TAG_DEFER;
 	req->result = result;
 	req->defer_timer.cb = deferral_cb;
@@ -292,7 +292,7 @@ int wsubus_access_check_(
 		void *ctx,
 		wsubus_access_cb cb)
 {
-	// this is the top-level entrypoint to access check, everything goes through it
+	/* this is the top-level entrypoint to access check, everything goes through it */
 
 	const char *esid = wsu_sid_extended(sid);
 
@@ -300,7 +300,7 @@ int wsubus_access_check_(
 	req->ctx = ctx;
 
 	enum wsu_ext_result res = EXT_CHECK_NEXT;
-	// first, check if one of 2 checkers whitelists this call
+	/* first, check if one of 2 checkers whitelists this call */
 	if (esid) {
 		if (!strcmp("mgmt-interface", esid)) {
 			res = wsu_ext_check_interface(wsi);
@@ -312,19 +312,19 @@ int wsubus_access_check_(
 #endif
 	}
 
-	// see if checker made a decision or if it says to consult next one
+	/* see if checker made a decision or if it says to consult next one */
 	if (res != EXT_CHECK_NEXT) {
-		// the checker made a decision, schedule firing of callback
+		/* the checker made a decision, schedule firing of callback */
 		return defer_callback(req, ctx, res == EXT_CHECK_ALLOW);
 	}
 
-	// restrict calls only to some network interfaces
+	/* restrict calls only to some network interfaces */
 	res = wsu_ext_restrict_interface(wsi, sid, scope, object, method, args);
 	if (res != EXT_CHECK_NEXT) {
 		return defer_callback(req, ctx, res == EXT_CHECK_ALLOW);
 	}
 
-	// by default, if no checker has made decision until now, ask rpcd about it (or allow if no ubus support)
+	/* by default, if no checker has made decision until now, ask rpcd about it (or allow if no ubus support) */
 #if WSD_HAVE_UBUS
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 	return wsubus_access_check_via_session(req, prog->ubus_ctx, sid, scope, object, method, args, ctx, cb);

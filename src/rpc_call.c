@@ -39,20 +39,20 @@
 
 #include <assert.h>
 
-//parsing {{{
+/* parsing {{{ */
 int ubusrpc_blob_call_parse_(struct ubusrpc_blob_call *ubusrpc, struct blob_attr *blob)
 {
 	static const struct blobmsg_policy rpc_ubus_param_policy[] = {
-		[0] = { .type = BLOBMSG_TYPE_STRING }, // ubus-session id
-		[1] = { .type = BLOBMSG_TYPE_STRING }, // ubus-object
-		[2] = { .type = BLOBMSG_TYPE_STRING }, // ubus-method
-		[3] = { .type = BLOBMSG_TYPE_UNSPEC }   // ubus-params (named)
+		[0] = { .type = BLOBMSG_TYPE_STRING }, /*  ubus-session id */
+		[1] = { .type = BLOBMSG_TYPE_STRING }, /*  ubus-object */
+		[2] = { .type = BLOBMSG_TYPE_STRING }, /*  ubus-method */
+		[3] = { .type = BLOBMSG_TYPE_UNSPEC }   /*  ubus-params (named) */
 	};
 	enum { __RPC_U_MAX = (sizeof rpc_ubus_param_policy / sizeof rpc_ubus_param_policy[0]) };
 	struct blob_attr *tb[__RPC_U_MAX];
 
-	// we memdup the blob because params can outlive the jsonrpc blob through
-	// several callbacks
+	/* we memdup the blob because params can outlive the jsonrpc blob through
+	 * several callbacks */
 	struct blob_attr *dup_blob = blob_memdup(blob);
 	if (!dup_blob) {
 		return -100;
@@ -64,9 +64,9 @@ int ubusrpc_blob_call_parse_(struct ubusrpc_blob_call *ubusrpc, struct blob_attr
 		return -100;
 	}
 
-	// TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
-	// and which is right here? (uhttpd ubus uses blobmsg_data for blob which
-	// comes from another blob's table... here and so do we)
+	/*  TODO<blob> blob_(data|len) vs blobmsg_xxx usage, what is the difference
+	 * and which is right here? (uhttpd ubus uses blobmsg_data for blob which
+	 * comes from another blob's table... here and so do we) */
 	blobmsg_parse_array(rpc_ubus_param_policy, __RPC_U_MAX, tb,
 			blobmsg_data(dup_blob), (unsigned)blobmsg_len(dup_blob));
 
@@ -92,10 +92,10 @@ int ubusrpc_blob_call_parse_(struct ubusrpc_blob_call *ubusrpc, struct blob_attr
 
 	blob_buf_init(params_buf, 0);
 
-	// Copied into via foreach because tb[3] when added to doesn't work vi aubus.
-	// This works but maybe we can do better without the loop (add whole params
-	// table at once), but how? (tried add_field add_blob ... <blob>???
-	// (blobmsg_add_blob works for id which comes from object, this comes from arr)
+	/*  Copied into via foreach because tb[3] when added to doesn't work vi aubus.
+	 * This works but maybe we can do better without the loop (add whole params
+	 * table at once), but how? (tried add_field add_blob ... <blob>???
+	 * (blobmsg_add_blob works for id which comes from object, this comes from arr) */
 	blobmsg_for_each_attr(cur, tb[3], rem)
 		blobmsg_add_blob(params_buf, cur);
 
@@ -136,7 +136,7 @@ struct ubusrpc_blob *ubusrpc_blob_call_parse(struct blob_attr *blob)
 
 	return &ubusrpc->_base;
 }
-//}}}
+/* }}} */
 
 int ubusrpc_handle_call(struct lws *wsi, struct ubusrpc_blob *ubusrpc_blob, struct blob_attr *id)
 {
@@ -145,10 +145,10 @@ int ubusrpc_handle_call(struct lws *wsi, struct ubusrpc_blob *ubusrpc_blob, stru
 #if WSD_HAVE_DBUS
 	ret = handle_call_dbus(wsi, ubusrpc_blob, id);
 #endif
-	// handle_call_dbus will return 1 if it can't find object on DBus. In that case we try ubus
+	/*  handle_call_dbus will return 1 if it can't find object on DBus. In that case we try ubus */
 
 	if (!ret) {
-		// dbus found the object, dont go to ubus
+		/*  dbus found the object, dont go to ubus */
 		return ret;
 	}
 

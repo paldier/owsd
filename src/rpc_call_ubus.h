@@ -26,7 +26,7 @@
 
 #include <libubus.h>
 
-// per-request context {{{
+/*  per-request context {{{ */
 struct wsubus_percall_ctx {
 	union {
 		struct ws_request_base;
@@ -74,7 +74,7 @@ static struct wsubus_percall_ctx *wsubus_percall_ctx_create(
 
 	return ret;
 }
-//}}}
+/* }}} */
 
 
 static void wsubus_call_on_completed(struct ubus_request *req, int status)
@@ -85,7 +85,7 @@ static void wsubus_call_on_completed(struct ubus_request *req, int status)
 
 	assert(curr_call->invoke_req == req);
 
-	// is req->status_code or status (the arg) what we want?
+	/*  is req->status_code or status (the arg) what we want? */
 	if (req->status_code != status)
 		lwsl_warn("status != req->status_code (%d != %d)\n", status, req->status_code);
 
@@ -150,7 +150,7 @@ static int wsubus_call_do_call(struct wsubus_percall_ctx *curr_call)
 	ret = ubus_invoke_async(prog->ubus_ctx, object_id, curr_call->call_args->method, curr_call->call_args->params_buf->head, call_req);
 	if (ret != UBUS_STATUS_OK) {
 		lwsl_info("invoke failed: %s\n", ubus_strerror(ret));
-		// req will not free itself since will not complete so we dispose it
+		/*  req will not free itself since will not complete so we dispose it */
 		free(call_req);
 		goto out;
 	}
@@ -189,7 +189,7 @@ static void wsubus_access_on_completed(struct wsubus_access_check_req *req, void
 
 out:
 	if (ret != UBUS_STATUS_OK) {
-		// hide all error codes in access behind permission denied
+		/*  hide all error codes in access behind permission denied */
 		ret = UBUS_STATUS_PERMISSION_DENIED;
 		char *json_str = jsonrpc__resp_ubus(curr_call->id, ret, NULL);
 		wsu_queue_write_str(curr_call->wsi, json_str);
@@ -205,7 +205,7 @@ static int wsubus_call_do_check_then_do_call(struct wsubus_percall_ctx *curr_cal
 	struct wsu_client_session *client = wsi_to_client(curr_call->wsi);
 
 	int ret = 0;
-	curr_call->access_check.destructor = NULL; // XXX
+	curr_call->access_check.destructor = NULL; /*  XXX */
 
 	list_add_tail(&curr_call->access_check.acq, &client->access_check_q);
 
@@ -251,18 +251,18 @@ int handle_call_ubus(struct lws *wsi, struct ubusrpc_blob *ubusrpc_blob, struct 
 	ret = wsubus_call_do_check_then_do_call(curr_call);
 
 	if (ret != UBUS_STATUS_OK) {
-		// we hide the real error with access check
+		/*  we hide the real error with access check */
 		ret = UBUS_STATUS_PERMISSION_DENIED;
 
 		list_del(&curr_call->cq);
 		wsubus_percall_ctx_destroy(&curr_call->_base);
 
-		// invoke never happened, we need to send ubus error status
-		// (jsonrpc success, but ubus code != 0)
+		/*  invoke never happened, we need to send ubus error status
+		 * (jsonrpc success, but ubus code != 0) */
 		char *response = jsonrpc__resp_ubus(id, ret, NULL);
 		wsu_queue_write_str(wsi, response);
 		free(response);
 	}
 
-	return 0; // means json-rpc went okay, we sent ubus error or rasponse here or in callback
+	return 0; /*  means json-rpc went okay, we sent ubus error or rasponse here or in callback */
 }

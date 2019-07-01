@@ -94,7 +94,7 @@ static inline int wsubus_access_check__call(
 		void *ctx,
 		wsubus_access_cb cb)
 {
-	// scope is used when access check goes to rpcd session ubus object, NULL means default scope which is ubus
+	/* scope is used when access check goes to rpcd session ubus object, NULL means default scope which is ubus */
 	return wsubus_access_check_(req, wsi, sid, NULL, object, method, args, ctx, cb);
 }
 
@@ -120,10 +120,10 @@ static inline int wsubus_access_check__event(
 		void *ctx,
 		wsubus_access_cb cb)
 {
-	// when access check goes to rpcd session ubus object, "owsd" is used as
-	// custom scope, under which "read" permission means that event is allowed
-	// to be heard by such-and-such user group. The custom scope is done to
-	// isolate event permissions from maybe-identically-named object/method
-	// permissions.
+	/* when access check goes to rpcd session ubus object, "owsd" is used as
+	 * custom scope, under which "read" permission means that event is allowed
+	 * to be heard by such-and-such user group. The custom scope is done to
+	 * isolate event permissions from maybe-identically-named object/method
+	 * permissions. */
 	return wsubus_access_check_(req, wsi, sid, "owsd", event, "read", data, ctx, cb);
 }

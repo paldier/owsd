@@ -46,7 +46,7 @@ struct prog_context {
 	const char *redir_to;
 };
 
-// each listen vhost keeps origin whitelist
+/* each listen vhost keeps origin whitelist */
 struct vh_context {
 	struct list_head origins;
 	struct list_head users;

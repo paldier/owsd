@@ -48,9 +48,9 @@ struct lws_protocols wsubus_proto = {
 	WSUBUS_PROTO_NAME,
 	wsubus_cb,
 	sizeof (struct wsu_peer),
-	32768,    //3000 // arbitrary length
-	0,    // - id
-	NULL, // - user pointer
+	32768,    /* arbitrary length */
+	0,    /* - id */
+	NULL, /* - user pointer */
 };
 
 /*
@@ -71,9 +71,9 @@ static bool origin_allowed(struct list_head *origin_list, char *origin)
 	struct str_list *str;
 
 	list_for_each_entry(str, origin_list, list) {
-		// According to RFC4343, DNS names are "case insensitive".
-		// Further, browsers generally send domain names converted
-		// to lowercase letters. Thus match origin case-insensitively.
+		/* According to RFC4343, DNS names are "case insensitive".
+		 * Further, browsers generally send domain names converted
+		 * to lowercase letters. Thus match origin case-insensitively. */
 		if (!fnmatch(str->str, origin, FNM_CASEFOLD))
 			return true;
 	}
@@ -103,8 +103,8 @@ static int wsubus_filter(struct lws *wsi)
 	struct vh_context *vc;
 
 	if (len == 0) {
-		// Origin can be faked by non-browsers, and browsers always send it.
-		// This means we can let in non-web agents since they may lie about origin anyway.
+		/* Origin can be faked by non-browsers, and browsers always send it.
+		 * This means we can let in non-web agents since they may lie about origin anyway. */
 		rc = 0;
 	} else if ((e = lws_hdr_copy(wsi, origin, len + 1, WSI_TOKEN_ORIGIN)) < 0) {
 		lwsl_err("error copying origin header %d\n", e);
@@ -137,20 +137,20 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 	struct ubusrpc_blob *ubusrpc_req = NULL;
 	int e = 0;
 	if (!jsonrpc_req) {
-		// free of NULL is no-op so okay
+		/* free of NULL is no-op so okay */
 		lwsl_err("failed to alloc\n");
 		e = JSONRPC_ERRORCODE__INTERNAL_ERROR;
 		goto out;
 	}
 
-	// parse the JSON-RPC part of message
+	/* parse the JSON-RPC part of message */
 	if (jsonrpc_blob_req_parse(jsonrpc_req, blob) != 0) {
 		lwsl_info("blobmsg not valid jsonrpc\n");
 		e = JSONRPC_ERRORCODE__INVALID_REQUEST;
 		goto out;
 	}
 
-	// parse the RPC method-specific arguments and other data
+	/* parse the RPC method-specific arguments and other data */
 	ubusrpc_req = ubusrpc_blob_parse(jsonrpc_req->method, jsonrpc_req->params, &e);
 	if (!ubusrpc_req) {
 		lwsl_info("not valid ubus rpc in jsonrpc %d\n", e);
@@ -159,7 +159,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 
 	wsu_sid_update(wsi_to_peer(wsi), ubusrpc_req->sid);
 
-	// call handler which was set by parse function
+	/* call handler which was set by parse function */
 	if (ubusrpc_req->handler(wsi, ubusrpc_req, jsonrpc_req->id) != 0) {
 		lwsl_info("ubusrpc method handler failed\n");
 		e = JSONRPC_ERRORCODE__OTHER;
@@ -167,8 +167,8 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 	}
 
 out:
-	// send jsonrpc error code if we failed...
-	// otherwise handler itself is in charge of sending reply
+	/* send jsonrpc error code if we failed...
+	 * otherwise handler itself is in charge of sending reply */
 	if (e) {
 		char *json_str = jsonrpc__resp_error(jsonrpc_req ? jsonrpc_req->id : NULL, e, NULL);
 		wsu_queue_write_str(wsi, json_str);
@@ -206,7 +206,7 @@ static void wsubus_rx_json(struct lws *wsi,
 	assert(len < INT32_MAX);
 	peer->curr_msg.len += len;
 
-	// feed in the newly-received text into json parser
+	/* feed in the newly-received text into json parser */
 	struct json_object *jobj = json_tokener_parse_ex(peer->curr_msg.jtok, in, (int)len);
 
 	enum json_tokener_error tok_error = json_tokener_get_error(peer->curr_msg.jtok);
@@ -214,14 +214,14 @@ static void wsubus_rx_json(struct lws *wsi,
 
 	if (!remaining_bytes_in_frame && is_final_frame) {
 		if (parsed_to == (int)len && jobj && json_object_is_type(jobj, json_type_object)) {
-			// message is finished and parser has successfully parsed everything
+			/* message is finished and parser has successfully parsed everything */
 			struct blob_buf blob = {};
 			blob_buf_init(&blob, 0);
 			blobmsg_add_object(&blob, jobj);
 			wsu_on_msg_from_client(wsi, blob.head);
 			blob_buf_free(&blob);
 		} else {
-			// parse error -> we just ignore the message
+			/* parse error -> we just ignore the message */
 			lwsl_err("json parsing error %s, at char %d of %zu, dropping msg\n",
 					json_tokener_error_desc(tok_error), parsed_to, len);
 			char *resp = jsonrpc__resp_error(NULL, JSONRPC_ERRORCODE__PARSE_ERROR, NULL);
@@ -231,13 +231,13 @@ static void wsubus_rx_json(struct lws *wsi,
 		wsu_read_reset(peer);
 	} else {
 		if (tok_error != json_tokener_continue) {
-			// parse error mid-message, client will send more data
-			// For now we drop the client, but we could mark state and skip only this message
+			/* parse error mid-message, client will send more data
+			 * For now we drop the client, but we could mark state and skip only this message */
 			lwsl_err("unexpected json parsing error %s\n", json_tokener_error_desc(tok_error));
 			lwsl_err("Dropping client\n");
 
-			// TODO<lwsclose> check
-			// stop reading and writing
+			/* TODO<lwsclose> check
+			 * stop reading and writing */
 			shutdown(lws_get_socket_fd(wsi), SHUT_RDWR);
 		}
 	}
@@ -250,9 +250,9 @@ static void wsubus_rx_blob(struct lws *wsi,
 		const char *in,
 		size_t len)
 {
-	// TODO implement
+	/* TODO implement */
 	lwsl_err("Binary (blobmsg) not implemented %p %p %zu\n", wsi, in, len);
-	// for now just do nothing with binary message
+	/* for now just do nothing with binary message */
 }
 
 static void wsubus_rx(struct lws *wsi,
@@ -269,12 +269,12 @@ static void wsubus_rx(struct lws *wsi,
 
 	if (len > WSUBUS_MAX_MESSAGE_LEN || remaining_bytes_in_frame > WSUBUS_MAX_MESSAGE_LEN ||
 			peer->curr_msg.len + len + remaining_bytes_in_frame > WSUBUS_MAX_MESSAGE_LEN) {
-		// client intends to send too mush data, we will drop them
+		/* client intends to send too mush data, we will drop them */
 		lwsl_err("peer IO: received fragment of frame (%zu total) making msg too long\n",
 				len + remaining_bytes_in_frame);
 
-		// TODO<lwsclose> check
-		// stop reading from mad client
+		/* TODO<lwsclose> check
+		 * stop reading from mad client */
 		shutdown(lws_get_socket_fd(wsi), SHUT_RD);
 	}
 
@@ -294,7 +294,7 @@ static int wsubus_cb(struct lws *wsi,
 	struct wsu_peer *peer = user;
 
 	switch (reason) {
-		// new client is connecting
+		/* new client is connecting */
 	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		lwsl_notice(WSUBUS_PROTO_NAME ": client handshake...\n");
 		if (0 != wsubus_filter(wsi))
@@ -307,7 +307,7 @@ static int wsubus_cb(struct lws *wsi,
 			return -1;
 		break;
 
-		// read/write
+		/* read/write */
 	case LWS_CALLBACK_RECEIVE:
 		lwsl_notice(WSUBUS_PROTO_NAME ": protocol data received, len %zu\n", len);
 		wsubus_rx(wsi, (char*)in, len);
@@ -318,7 +318,7 @@ static int wsubus_cb(struct lws *wsi,
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
 
-		// client is leaving
+		/* client is leaving */
 	case LWS_CALLBACK_CLOSED:
 		lwsl_notice(WSUBUS_PROTO_NAME ": closed\n");
 		wsu_peer_deinit(wsi, peer);

@@ -96,13 +96,13 @@ static int handle_list_ubus(struct ws_request_base *req, struct lws *wsi, struct
 		if (ret) {
 			response_str = jsonrpc__resp_ubus(id, ret ? ret : -1, NULL);
 		} else {
-			// using blobmsg_data here to pass only array part of blobmsg
+			/* using blobmsg_data here to pass only array part of blobmsg */
 			response_str = jsonrpc__resp_ubus(id, 0, req->retbuf.head);
 		}
 
 		wsu_queue_write_str(wsi, response_str);
 
-		// free memory
+		/* free memory */
 		free(response_str);
 	}
 

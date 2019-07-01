@@ -459,7 +459,7 @@ int add_client(struct ubus_context *ctx, struct ubus_object *obj,
 
 	if (!(tb[CLIENT_ADD_IP]))
 		return UBUS_STATUS_INVALID_ARGUMENT;
-	//TODO: validate IP
+	/* TODO: validate IP */
 
 	if (tb[CLIENT_ADD_PORT])
 		port = blobmsg_get_u32(tb[CLIENT_ADD_PORT]);
@@ -642,7 +642,7 @@ int wsubus_client_start_proxying(struct lws_context *lws_ctx,
 		c->connection_info.context = lws_ctx;
 	}
 
-	// Setup ubus object
+	/*  Setup ubus object */
 	ubus_add_object(ubus_ctx, &object);
 
 	return 0;

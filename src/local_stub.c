@@ -47,22 +47,22 @@ static int wsu_local_stub_handle_call(struct ubus_context *ubus_ctx, struct ubus
 {
 	lwsl_notice("stub %s %s called\n", obj->name, method);
 
-	// find stub object
+	/* find stub object */
 	struct wsu_local_stub *stub = container_of(obj, struct wsu_local_stub, obj);
 
 	char *args_json = blobmsg_format_json(args, true);
 	json_object *args_jobj = args_json ? json_tokener_parse(args_json) : NULL;
 
-	// extract local name from proxied name
+	/* extract local name from proxied name */
 	char *local_name = strchr(obj->name, '/')+1;
 
-	// create RPC request
+	/* create RPC request */
 	char *d = jsonrpc__req_ubuscall(++stub->remote->call_id, wsu_remote_to_peer(stub->remote)->sid, local_name, method, args_jobj);
 
 	free(args_json);
 	json_object_put(args_jobj);
 
-	// find slot for storing request id
+	/* find slot for storing request id */
 	struct wsu_proxied_call *p = wsu_proxied_call_new(stub->remote);
 	if (!p) {
 		free(d);
@@ -70,21 +70,21 @@ static int wsu_local_stub_handle_call(struct ubus_context *ubus_ctx, struct ubus
 		return UBUS_STATUS_NOT_SUPPORTED;
 	}
 
-	// save id into slot
+	/* save id into slot */
 	p->jsonrpc_id = stub->remote->call_id;
 
-	// ubus request will complete when matchin reply arrives
+	/* ubus request will complete when matchin reply arrives */
 	ubus_defer_request(ubus_ctx, req, &p->ureq);
 
-	// send out the RPC request
+	/* send out the RPC request */
 	wsu_queue_write_str(stub->remote->wsi, d);
 
 	/* TODO: improvement in memory management
-	* Do not free here.
-	* Instead: use this already allocated memory in the wsu_writereq structure
-	* in the wsu_queue_write_str function.
-	* Also: free this memory together with the wsu_writereq
-	*/
+	 * Do not free here.
+	 * Instead: use this already allocated memory in the wsu_writereq structure
+	 * in the wsu_queue_write_str function.
+	 * Also: free this memory together with the wsu_writereq
+	 */
 	free(d);
 
 	return 0;
@@ -92,7 +92,7 @@ static int wsu_local_stub_handle_call(struct ubus_context *ubus_ctx, struct ubus
 
 bool wsu_local_stub_is_same_signature(struct wsu_local_stub *stub, json_object *signature)
 {
-	// TODO validate signature jobj somewhere before this is called, we asume valid json
+	/* TODO validate signature jobj somewhere before this is called, we asume valid json */
 
 	if (stub->obj_type.n_methods != json_object_object_length(signature))
 		return false;
@@ -118,16 +118,17 @@ bool wsu_local_stub_is_same_signature(struct wsu_local_stub *stub, json_object *
 	return true;
 }
 
-// {{{
-// proxied_name functions are used for naming the remote events when replaying them locally
-// and for naming the local objects
+/* {{{ */
+
+/* proxied_name functions are used for naming the remote events when replaying them locally
+and for naming the local objects */
 
 /**
  * \brief tells how much space to allocate for the proxied name based on the original name
  */
 static size_t proxied_name_size(const struct wsu_remote_bus *remote, const char *name)
 {
-	// TODO maybe calculate space depending on length of remote's hostname or IP or some alias ...
+	/* TODO maybe calculate space depending on length of remote's hostname or IP or some alias ... */
 	(void)remote;
 	return strlen(name) + 50 + 2;
 }
@@ -149,7 +150,7 @@ static void proxied_name_fill(char *proxied_name, size_t proxied_name_sz, const 
 	strncat(proxied_name, name, proxied_name_sz - strlen(proxied_name));
 }
 
-// this function allocates memory, remember to free it
+/* this function allocates memory, remember to free it */
 char *get_mac_by_ip(const char *ipaddr)
 {
 	int rv;
@@ -186,7 +187,7 @@ out:
 	return NULL;
 }
 
-// replace ip with mac
+/* replace ip with mac */
 /**
  * \brief replace ip with mac in the local stub object name
  *
@@ -227,35 +228,35 @@ out:
 	return;
 }
 
-// }}}
+/* }}} */
 
 struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, const char *object, json_object *signature)
 {
 	size_t num_methods = json_object_object_length(signature);
 	size_t num_args = 0;
 	{
-		// first, count how much argument signatures in total there are for all methods of this object
+		/* first, count how much argument signatures in total there are for all methods of this object */
 		json_object_object_foreach(signature, mname, margs) {
 			num_args += json_object_object_length(margs);
 			(void)mname;
 		}
 	}
 
-	// TODO validate signature jobj somewhere before this is called, we assume valid json
-	// or inside here?
+	/* TODO validate signature jobj somewhere before this is called, we assume valid json
+	 * or inside here? */
 
-	// allocate space for stub info + method info, and for args info separately
+	/* allocate space for stub info + method info, and for args info separately */
 	struct wsu_local_stub *stub = calloc(1, sizeof *stub + num_methods * sizeof stub->methods[0]);
 	stub->method_args = calloc(num_args, sizeof stub->method_args[0]);
 
-	// fill in fields
+	/* fill in fields */
 	stub->remote = remote;
 
 	stub->obj.type = &stub->obj_type;
 	stub->obj_type.n_methods = num_methods;
 	stub->obj_type.methods = stub->methods;
 
-	// deep copy all the argument names
+	/* deep copy all the argument names */
 	struct ubus_method *m = stub->methods;
 	struct blobmsg_policy *b = stub->method_args;
 	json_object_object_foreach(signature, mname, margs) {
@@ -272,7 +273,7 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 		++m;
 	};
 
-	// name the remote object
+	/* name the remote object */
 	size_t proxied_objname_sz = proxied_name_size(remote, object);
 	char *proxied_objname = malloc(proxied_objname_sz);
 	proxied_name_fill(proxied_objname, proxied_objname_sz, remote, object);
@@ -285,11 +286,11 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 	stub->obj.n_methods = stub->obj_type.n_methods;
 	stub->obj.methods = stub->obj_type.methods;
 
-	// insert into our collection
+	/* insert into our collection */
 	stub->avl.key = strchr(proxied_objname, '/')+1;
 	avl_insert(&remote->stubs, &stub->avl);
 
-	// register the object on local bus
+	/* register the object on local bus */
 	struct prog_context *global = lws_context_user(lws_get_context(stub->remote->wsi));
 	ubus_add_object(global->ubus_ctx, &stub->obj);
 
@@ -298,11 +299,11 @@ struct wsu_local_stub* wsu_local_stub_create(struct wsu_remote_bus *remote, cons
 
 void wsu_local_stub_destroy(struct wsu_local_stub *stub)
 {
-	// unregister object from bus
+	/* unregister object from bus */
 	struct prog_context *global = lws_context_user(lws_get_context(stub->remote->wsi));
 	ubus_remove_object(global->ubus_ctx, &stub->obj);
 
-	// free up everything we deep-copied
+	/* free up everything we deep-copied */
 	for (struct ubus_method *m = (struct ubus_method *)stub->obj_type.methods;
 			m < stub->obj_type.methods + stub->obj_type.n_methods;
 			++m) {
@@ -314,10 +315,10 @@ void wsu_local_stub_destroy(struct wsu_local_stub *stub)
 		free((char*)m->name);
 	}
 
-	// remove from collection
+	/* remove from collection */
 	avl_delete(&stub->remote->stubs, &stub->avl);
 
-	// free allocated memory
+	/* free allocated memory */
 	free((char*)stub->obj_type.name);
 	free(stub->method_args);
 	free(stub);
@@ -325,15 +326,15 @@ void wsu_local_stub_destroy(struct wsu_local_stub *stub)
 
 struct wsu_local_proxied_event *wsu_local_proxied_event_create(struct wsu_remote_bus *remote, const char *event_name, json_object *event_data)
 {
-	// name the event
+	/* name the event */
 	size_t proxied_eventname_sz = proxied_name_size(remote, event_name);
 	struct wsu_local_proxied_event *event = calloc(1, sizeof *event + proxied_eventname_sz);
 	proxied_name_fill(event->name, proxied_eventname_sz, remote, event_name);
-	// if the ubusx events need to have the mac prefix instead of ip prefix,
-	// uncomment the following line:
-	//proxied_name_mac_prefix(event->name, proxied_eventname_sz);
+	/* if the ubusx events need to have the mac prefix instead of ip prefix,
+	 * uncomment the following line:
+	 * proxied_name_mac_prefix(event->name, proxied_eventname_sz); */
 
-	// copy the event's data
+	/* copy the event's data */
 	blob_buf_init(&event->b, 0);
 	if (json_object_is_type(event_data, json_type_object))
 		blobmsg_add_object(&event->b, event_data);

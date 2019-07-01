@@ -47,14 +47,14 @@ struct lws_protocols ws_http_proto = {
 	 * to match this and negotiate a connection under this subprotocol */
 	",,,,,,,,",
 	ws_http_cb,
-	// following other fields we don't use:
-	0,    // - per-session data size
-	0,    // - max rx buffer size
-	0,    // - id
-	NULL, // - user pointer
+	/* following other fields we don't use: */
+	0,    /* - per-session data size */
+	0,    /* - max rx buffer size */
+	0,    /* - id */
+	NULL, /* - user pointer */
 };
 
-// {{{ event bitmask conversions
+/* {{{ event bitmask conversions */
 static inline short
 eventmask_ufd_to_pollfd(unsigned int ufd_events)
 {
@@ -70,7 +70,7 @@ eventmask_pollfd_to_ufd(int pollfd_events)
 		(pollfd_events & POLLOUT ? ULOOP_WRITE : 0) |
 		ULOOP_ERROR_CB;
 }
-// }}}
+/* }}} */
 
 /**
  * \brief Called by uloop when read/writable events happen
@@ -85,20 +85,20 @@ static void ufd_service_cb(struct uloop_fd *ufd, unsigned int revents)
 	lwsl_debug("servicing fd %d with ufd eventmask %x %s%s\n", ufd->fd, revents,
 			revents & ULOOP_READ ? "R" : "", revents & ULOOP_WRITE ? "W" : "");
 
-	// libwebsockets' poll integration expects to receive a 'struct pollfd'
-	// like from poll(2) . To integrate libwebsockets with uloop we thus need
-	// to convert uloop's polling structs and masks to pollfd
+	/* libwebsockets' poll integration expects to receive a 'struct pollfd'
+	 * like from poll(2) . To integrate libwebsockets with uloop we thus need
+	 * to convert uloop's polling structs and masks to pollfd */
 	struct pollfd pfd;
 
-	// convert the polling mode flags
+	/* convert the polling mode flags */
 	pfd.events = eventmask_ufd_to_pollfd(ufd->flags);
-	// convert the event that happened
+	/* convert the event that happened */
 	pfd.revents = eventmask_ufd_to_pollfd(revents);
 	pfd.fd = ufd->fd;
 
-	// additionally uloop stores error and hangup condition outside the event
-	// mask, whereas pollfd has it in-band with the event mask. So, manually
-	// restore those bits as well.
+	/* additionally uloop stores error and hangup condition outside the event
+	 * mask, whereas pollfd has it in-band with the event mask. So, manually
+	 * restore those bits as well. */
 	if (ufd->eof) {
 		pfd.revents |= POLLHUP;
 		lwsl_debug("ufd HUP on %d\n", ufd->fd);
@@ -108,15 +108,15 @@ static void ufd_service_cb(struct uloop_fd *ufd, unsigned int revents)
 		lwsl_debug("ufd ERR on %d\n", ufd->fd);
 	}
 
-	// forward the struct to inform libwebsockets about the event
+	/* forward the struct to inform libwebsockets about the event */
 	lws_service_fd(global.lws_ctx, &pfd);
 
-	// in case one read event resulted in multiple logical requests (e.g.
-	// multiple HTTP GET requests pipelined and received at once),
-	// libwebsockets will only process part of it (probably such a default
-	// gives more control to the external dispatching loop). Anyway, we want to
-	// re-service libwebosockets to drain the data until everything has been
-	// processed.
+	/* in case one read event resulted in multiple logical requests (e.g.
+	 * multiple HTTP GET requests pipelined and received at once),
+	 * libwebsockets will only process part of it (probably such a default
+	 * gives more control to the external dispatching loop). Anyway, we want to
+	 * re-service libwebosockets to drain the data until everything has been
+	 * processed. */
 	for (int count = 30; count && !lws_service_adjust_timeout(global.lws_ctx, 1, 0); --count) {
 		lwsl_notice("re-service pipelined data\n");
 		lws_plat_service_tsi(global.lws_ctx, -1, 0);
@@ -144,9 +144,9 @@ static int ws_http_cb(struct lws *wsi,
 	case LWS_CALLBACK_HTTP_WRITEABLE:
 		return lws_callback_http_dummy(wsi, reason, user, in, len);
 #endif
-		// fd handling
+		/* fd handling */
 	case LWS_CALLBACK_ADD_POLL_FD: {
-		// libwebsockets wants us to watch a new fd
+		/* libwebsockets wants us to watch a new fd */
 		lwsl_notice("add fd %d mask %x\n", in_pollargs->fd, in_pollargs->events);
 
 		assert(in_pollargs->fd >= 0 && in_pollargs->fd > 0 && (size_t)in_pollargs->fd < prog->num_ufds);
@@ -174,13 +174,13 @@ static int ws_http_cb(struct lws *wsi,
 	}
 
 	case LWS_CALLBACK_DEL_POLL_FD: {
-		// libwebsockets wants us to stop watching some fd
+		/* libwebsockets wants us to stop watching some fd */
 		lwsl_notice("del fd %d\n", in_pollargs->fd);
 
 		assert(in_pollargs->fd >= 0 && in_pollargs->fd > 0 && (size_t)in_pollargs->fd < prog->num_ufds);
-		// TODO LWS shouldn't call us if we didn't manage to add fd. for now ignore if not added
-		// TODO is this a LWS 'bug'?
-		// assert(prog->ufds[in_pollargs->fd] != NULL);
+		/* TODO LWS souldn't call us if we didn't manage to add fd. for now ignore if not added */
+		/* TODO is this a LWS 'bug'? */
+		/* assert(prog->ufds[in_pollargs->fd] != NULL); */
 		if (prog->ufds[in_pollargs->fd] == NULL)
 			return 0;
 
@@ -193,7 +193,7 @@ static int ws_http_cb(struct lws *wsi,
 	}
 
 	case LWS_CALLBACK_CHANGE_MODE_POLL_FD: {
-		// libwebsockets wants us to modify event flags on watched fd
+		/* libwebsockets wants us to modify event flags on watched fd */
 		lwsl_notice("modify fd %d to mask %x %s%s\n", in_pollargs->fd, in_pollargs->events,
 				in_pollargs->events & POLLIN ? "IN" : "", in_pollargs->events & POLLOUT ? "OUT" : "");
 
@@ -241,23 +241,23 @@ static int ws_http_cb(struct lws *wsi,
 	}
 #endif
 
-		// deny websocket clients with default (no) subprotocol
+		/* deny websocket clients with default (no) subprotocol */
 	case LWS_CALLBACK_FILTER_PROTOCOL_CONNECTION:
 		lwsl_notice("client handshaking without subproto - denying\n");
 		return 1;
 
 
 	case LWS_CALLBACK_OPENSSL_PERFORM_CLIENT_CERT_VERIFICATION:
-		// we don't deny any clients here, we check later if authed and allow extra access
+		/* we don't deny any clients here, we check later if authed and allow extra access */
 		return 0;
 
-		// temporary - libwebsockets 1.7+ calls this always... TODO lwsbug
+		/* temporary - libwebsockets 1.7+ calls this always... TODO lwsbug */
 	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS:
 		return 0;
 
-		// plain HTTP request received
+		/* plain HTTP request received */
 	case LWS_CALLBACK_HTTP:	 {
-		// we have custom HTTP serving logic called from here
+		/* we have custom HTTP serving logic called from here */
 		return ws_http_serve_file(wsi, in);
 	}
 	case LWS_CALLBACK_FILTER_HTTP_CONNECTION:

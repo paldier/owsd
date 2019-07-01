@@ -48,7 +48,7 @@
 #endif
 
 #define WSUBUS_PROTO_NAME "ubus-json"
-#define WSUBUS_MAX_MESSAGE_LEN (1 << 27) // 128M
+#define WSUBUS_MAX_MESSAGE_LEN (1 << 27) /* 128M */
 
 #define UBUS_DEFAULT_SID "00000000000000000000000000000000"
 #define UBUS_SID_MAX_STRLEN 32
@@ -61,12 +61,12 @@
  * Used to store per-connection information and structures
  */
 struct wsu_peer {
-	// I/O
+	/* I/O */
 	struct {
 		struct json_tokener *jtok;
 		size_t len;
-	} curr_msg; // read
-	struct list_head write_q; // write
+	} curr_msg; /* read */
+	struct list_head write_q; /* write */
 
 	char sid[UBUS_SID_MAX_STRLEN + 1];
 
@@ -85,7 +85,7 @@ struct wsu_peer {
 		 */
 		struct wsu_client_session {
 			unsigned int id;
-			// used to track/cancel the long-lived handles or async requests
+			/* used to track/cancel the long-lived handles or async requests */
 			struct list_head rpc_call_q;
 			struct list_head access_check_q;
 		} client;
@@ -117,7 +117,7 @@ struct wsu_peer {
 	} u;
 };
 
-//{{{ wsi userdata getters
+/*{{{ wsi userdata getters */
 static inline struct wsu_peer *wsi_to_peer(struct lws *wsi)
 {
 	struct wsu_peer *p = lws_wsi_user(wsi);
@@ -147,10 +147,10 @@ static inline struct wsu_peer *wsu_client_to_peer(struct wsu_client_session *cli
 {
 	return container_of(client, struct wsu_peer, u.client);
 }
-//}}}
+/*}}} */
 
 #if WSD_HAVE_UBUSPROXY
-//{{{ accessors for remote.calls collection
+/*{{{ accessors for remote.calls collection */
 static inline struct wsu_proxied_call *wsu_proxied_call_new(struct wsu_remote_bus *remote)
 {
 	unsigned call_idx = ffs(~remote->waiting_for.call);
@@ -179,8 +179,8 @@ static inline void wsu_proxied_call_free(struct wsu_remote_bus *remote, struct w
 				_callbit_##REMOTE); \
 			_mask_##REMOTE &= ~_callbit_##REMOTE)
 
-//}}}
-#endif // WSD_HAVE_UBUSPROXY
+/*}}} */
+#endif /* WSD_HAVE_UBUSPROXY */
 
 /**
  * \brief used to tie access_check_req context into list to be tracked/cancellable
@@ -191,7 +191,7 @@ struct wsubus_client_access_check_ctx {
 	struct list_head acq;
 };
 
-//{{{ I/O handling
+/*{{{ I/O handling */
 struct wsu_writereq {
 	size_t len;
 	size_t written;
@@ -247,7 +247,7 @@ static inline int wsu_queue_write_str(struct lws *wsi, const char *response_str)
 
 	return 0;
 }
-//}}}
+/*}}} */
 
 static inline int wsu_sid_update(struct wsu_peer *peer, const char *sid)
 {
@@ -265,7 +265,7 @@ static inline int wsu_peer_init(struct wsu_peer *peer, enum wsu_role role)
 		static unsigned int clientid = 1;
 
 		peer->u.client.id = clientid++;
-		// these lists will keep track of async calls in progress
+		/* these lists will keep track of async calls in progress */
 		INIT_LIST_HEAD(&peer->u.client.rpc_call_q);
 		INIT_LIST_HEAD(&peer->u.client.access_check_q);
 #if WSD_HAVE_UBUSPROXY
@@ -282,7 +282,7 @@ static inline int wsu_peer_init(struct wsu_peer *peer, enum wsu_role role)
 	if (!jtok)
 		return 1;
 
-	// initialize the parser
+	/* initialize the parser */
 	peer->curr_msg.len = 0;
 	peer->curr_msg.jtok = jtok;
 	INIT_LIST_HEAD(&peer->write_q);
@@ -300,7 +300,7 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 	peer->curr_msg.jtok = NULL;
 
 	{
-		// free everything from write queue
+		/* free everything from write queue */
 		struct wsu_writereq *p, *n;
 		list_for_each_entry_safe(p, n, &peer->write_q, wq) {
 			lwsl_info("free write in progress %p\n", p);
@@ -312,13 +312,13 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 	if (peer->role == WSUBUS_ROLE_CLIENT) {
 		struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 
-		// cancel each access check in progress
-		//
-		// NOTE:
-		// it is important that first we cancel access checks in progress
-		// (before cancelling calls in progress), since access check may
-		// reference a pending call in progress (namely a call to ubus session
-		// object)
+		/* cancel each access check in progress */
+		/* */
+		/* NOTE:
+		 * it is important that first we cancel access checks in progress
+		 * (before cancelling calls in progress), since access check may
+		 * reference a pending call in progress (namely a call to ubus session
+		 * object) */
 		{
 			struct wsubus_client_access_check_ctx *p, *n;
 			list_for_each_entry_safe(p, n, &peer->u.client.access_check_q, acq) {
@@ -338,7 +338,7 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 
 		{
 			struct list_head *p, *n;
-			// cancel all calls in progress
+			/* cancel all calls in progress */
 			list_for_each_safe(p, n, &peer->u.client.rpc_call_q) {
 				list_del(p);
 				struct ws_request_base *base = container_of(p, struct ws_request_base, cq);
@@ -375,8 +375,8 @@ static inline int wsubus_tx_text(struct lws *wsi)
 
 			if (written < 0) {
 				lwsl_err("peer IO: error %d in writing\n", written);
-				// TODO<lwsclose> check
-				// stop reading and writing
+				/* TODO<lwsclose> check
+				 * stop reading and writing */
 				shutdown(lws_get_socket_fd(wsi), SHUT_RDWR);
 				return -1;
 			}

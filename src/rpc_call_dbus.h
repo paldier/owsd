@@ -31,7 +31,7 @@
 #include <libubox/blobmsg.h>
 #include <dbus/dbus.h>
 
-// per-request context {{{
+/*  per-request context {{{ */
 struct wsd_call_ctx {
 	union {
 		struct ws_request_base;
@@ -64,7 +64,7 @@ static void wsd_call_ctx_cancel_and_destroy(struct ws_request_base *base)
 		wsd_call_ctx_free(ctx);
 	}
 }
-//}}}
+/* }}} */
 
 static void wsd_call_cb(struct DBusPendingCall *call, void *data)
 {

@@ -29,7 +29,7 @@ char* jsonrpc__resp_error(struct blob_attr *id, int error_code, struct blob_attr
 	if (id) {
 		blobmsg_add_blob(&resp_buf, id);
 	} else {
-		// this works out to null in json
+		/* this works out to null in json */
 		blobmsg_add_field(&resp_buf, BLOBMSG_TYPE_UNSPEC, "id", NULL, 0);
 	}
 
@@ -62,7 +62,7 @@ char* jsonrpc__resp_ubus(struct blob_attr *id, int ubus_rc, struct blob_attr *re
 	if (id) {
 		blobmsg_add_blob(&resp_buf, id);
 	} else {
-		// this works out to null in json
+		/* this works out to null in json */
 		blobmsg_add_field(&resp_buf, BLOBMSG_TYPE_UNSPEC, "id", NULL, 0);
 	}
 
