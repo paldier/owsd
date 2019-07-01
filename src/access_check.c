@@ -21,6 +21,7 @@
 #include "access_check.h"
 #include "common.h"
 #include "wsubus.impl.h"
+#include "ubusx_acl.h"
 
 #if WSD_HAVE_UBUS
 #include <libubus.h>

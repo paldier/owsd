@@ -551,7 +551,7 @@ ssl:
 				&c->vh_info.protocols[1] /* ubus */, sizeof(unsigned long));
 
 		/* re-assign the private pointer to point to the vh_ctx we have prepared */
-		*pvh_context = &c->vh_ctx;
+		*pvh_context = (unsigned long) &c->vh_ctx;
 	}
 
 #if WSD_HAVE_UBUSPROXY
