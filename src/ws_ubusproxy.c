@@ -65,7 +65,8 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		if (wsubus_client_should_destroy(wsi))
 			return -1;
 			/* returning -1 from here initialises a tear down of the connection,
-			  and LWS_CALLBACK_CLOSED will be called */
+			 * and LWS_CALLBACK_CLOSED will be called
+			 */
 
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
@@ -75,6 +76,7 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 	case LWS_CALLBACK_CLOSED:
 		lwsl_notice(WSUBUS_PROTO_NAME ": closed\n");
 		int role = peer->role;
+
 		wsu_peer_deinit(wsi, peer);
 
 		if (role == WSUBUS_ROLE_CLIENT)

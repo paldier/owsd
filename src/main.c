@@ -158,11 +158,14 @@ static int calculate_total_req_max(void)
 
 int contains_substring(const char *a, const char *b)
 {
-   if(strncmp(a, b, strlen(b)) == 0) return strlen(b);
-   return 0;
+	if (strncmp(a, b, strlen(b)) == 0)
+		return strlen(b);
+
+	return 0;
 }
 
-static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation_info *vh_info, struct vh_context *vh_ctx, const char *name) {
+static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation_info *vh_info, struct vh_context *vh_ctx, const char *name)
+{
 	struct lws_vhost *vh;
 
 	int offset = contains_substring(name, "http://") | contains_substring(name, "https://");
@@ -588,6 +591,7 @@ ssl:
 
 		/* create one vhost for each origin */
 		struct str_list *origin;
+
 		list_for_each_entry(origin, &c->vh_ctx.origins, list) {
 			struct lws_context_creation_info *creation_ctx = calloc(1, sizeof(struct lws_context_creation_info));
 
