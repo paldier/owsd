@@ -177,15 +177,14 @@ static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation
 		return -1;
 	}
 
-	// per-vhost storage is lws-allocated
-	/* allocate private memory for one pointer */
+	/* per-vhost storage is lws-allocated
+	 * allocate private memory for one pointer
+	 */
 	unsigned long *pvh_context = lws_protocol_vh_priv_zalloc(vh,
 			&vh_info->protocols[1] /* ubus */, sizeof(unsigned long));
 
 	/* re-assign the private pointer to point to the vh_ctx we have prepared */
 	*pvh_context = (unsigned long) vh_ctx;
-	/* increment refcounter as several vhosts may depend on same vh_ctx */
-	vh_ctx->refcount++;
 
 	return 0;
 }
@@ -576,6 +575,8 @@ ssl:
 		cgimount.origin = global_cfg.cgi_to;
 	}
 
+	struct vhinfo_list *last = NULL, *vh_origins = NULL;
+
 	/* create all listening vhosts */
 	for (struct vhinfo_list *c = currvh; c; c = c->next) {
 		c->vh_info.protocols = ws_protocols;
@@ -593,13 +594,18 @@ ssl:
 		struct str_list *origin;
 
 		list_for_each_entry(origin, &c->vh_ctx.origins, list) {
-			struct lws_context_creation_info *creation_ctx = calloc(1, sizeof(struct lws_context_creation_info));
+			if (copy_vhinfo_list(&vh_origins, c))
+				continue;
 
-			memcpy(creation_ctx, &c->vh_info, sizeof(struct lws_context_creation_info));
-			if (create_vhost(lws_ctx, creation_ctx, &c->vh_ctx, origin->str))
+			if (create_vhost(lws_ctx, &vh_origins->vh_info, &vh_origins->vh_ctx, origin->str))
 				continue;
 		}
+		last = c;
 	}
+
+	/* append the additional vhosts for each origin to the list */
+	if (last)
+		last->next = vh_origins;
 
 #if WSD_HAVE_UBUSPROXY
 	wsubus_client_start_proxying(lws_ctx, ubus_ctx);
