@@ -180,13 +180,9 @@ static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation
 			&vh_info->protocols[1] /* ubus */, sizeof(unsigned long));
 
 	/* re-assign the private pointer to point to the vh_ctx we have prepared */
-	*pvh_context = vh_ctx;
-	lwsl_notice("%s %d set pvh_context to %p, nmae %s, vh_ctx to %p, name vh_ctx to %s\n", __func__, __LINE__, *pvh_context, ((struct vh_context *)*pvh_context)->name, vh_ctx, vh_ctx->name);
+	*pvh_context = (unsigned long) vh_ctx;
 	/* increment refcounter as several vhosts may depend on same vh_ctx */
 	vh_ctx->refcount++;
-
-	lwsl_debug("created vhost %s for port %d with %s , c %s k %s\n", vh_info->vhost_name, vh_info->port, (vh_info->options & LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT) ? "ssl" : "no ssl",
-			   vh_info->ssl_cert_filepath, vh_info->ssl_private_key_filepath);
 
 	return 0;
 }
