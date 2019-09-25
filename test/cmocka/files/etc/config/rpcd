@@ -1,0 +1,5 @@
+config login
+	option username 'user'
+	option password '$p$user'
+	list read 'user'
+	list write 'unauthenticated'

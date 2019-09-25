@@ -1,0 +1,32 @@
+{
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://iopsys.eu/restricted_template",
+  "object": "invalid_template",
+  "type": "object",
+  "title": "Invalid Template Schema",
+  "properties": {
+	  "test": {
+		  "type": "object",
+		  "properties": {
+			  "input": {
+				  "type":"object",
+				  "required": ["test"],
+				  "properties": {
+					  "test": {
+						  "type": "integer"
+					  }
+				   }
+			  },
+			  "output": {
+				"type": "object",
+				"properties": {
+					"test": {
+						"type": "integer"
+					}
+				}
+			  }
+		  }
+	  }
+  }
+}

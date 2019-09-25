@@ -52,14 +52,14 @@ static int wsu_local_stub_handle_call(struct ubus_context *ubus_ctx, struct ubus
 
 	/* extract local name from proxied name */
 	char *local_name = strchr(obj->name, '/')+1;
-
 	/* create RPC request */
 	char *d = jsonrpc__req_ubuscall(++stub->remote->call_id, wsu_remote_to_peer(stub->remote)->sid, local_name, method, args_jobj);
 
 	lwsl_notice("stub %s %s called\n", obj->name, method);
 
 	free(args_json);
-	json_object_put(args_jobj);
+	if (args_jobj)
+		json_object_put(args_jobj);
 
 	/* find slot for storing request id */
 	struct wsu_proxied_call *p = wsu_proxied_call_new(stub->remote);

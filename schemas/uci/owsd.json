@@ -1,0 +1,130 @@
+{
+    "owsd": [{
+            "section": "owsd",
+            "description": "Global configuration options",
+            "multi": false,
+            "options": [{
+                    "name": "sock",
+                    "type": "string",
+                    "required": "yes",
+                    "default": null,
+                    "description": "Path to the ubus socket."
+                },
+                {
+                    "name": "www",
+                    "type": "string",
+                    "default": null,
+                    "description": "Path to files to serve on HTTP request."
+                },
+                {
+                    "name": "redirect",
+                    "default": null,
+                    "description": "Change the file to be served upon certain requests.",
+                    "type": "varies"
+                },
+                {
+                    "name": "www_maxage",
+                    "default": null,
+                    "description": "Enable HTTP caching with specified time in seconds",
+                    "type": "string"
+                }
+            ]
+        },
+        {
+            "section": "ubusproxy",
+            "description": "Ubus proxy configurations",
+            "multi": false,
+            "options": [{
+                    "name": "enable",
+                    "type": "boolean",
+                    "required": "yes",
+                    "default": "false",
+                    "description": "Specifies whether this device will attempt to connect to remote hosts and proxy their objects to the local bus."
+                },
+                {
+                    "name": "peer",
+                    "type": "list",
+                    "required": "no",
+                    "default": null,
+                    "description": "A protocol and IP address of a remote host."
+                },
+                {
+                    "name": "object",
+                    "required": "no",
+                    "default": null,
+                    "description": "A white-list filter from the host side of objects to publish to the local bus.",
+                    "type": "list"
+                },
+                {
+                    "name": "peer_cert",
+                    "default": null,
+                    "description": "Path to SSL certificate.",
+                    "type": "string"
+                },
+                {
+                    "name": "peer_key",
+                    "description": "Path to SSL private key.",
+                    "type": "string",
+                    "default": null
+                },
+                {
+                    "name": "peer_ca",
+                    "description": "Path to SSL certificate authority file",
+                    "default": null,
+                    "type": "string"
+                }
+            ]
+        },
+        {
+            "section": "owsd-listen",
+            "description": "Websocket listener configuration",
+            "multi": true,
+            "options": [{
+                    "name": "port",
+                    "type": "integer",
+                    "required": "yes",
+                    "default": null,
+                    "description": "Port to open the listener at."
+                },
+                {
+                    "name": "interface",
+                    "type": "string",
+                    "required": "yes",
+                    "default": null,
+                    "description": "Interface to open the listener on."
+                },
+                {
+                    "name": "ipv6",
+                    "required": "no",
+                    "default": false,
+                    "description": "Accept connections over IPv6 on the interface.",
+                    "type": "boolean"
+                },
+                {
+                    "name": "ipv6only",
+                    "default": false,
+                    "description": "Enable if only IPv6 connections should be accepted on the interface.",
+                    "type": "boolean"
+                },
+                {
+                    "name": "whitelist_interface_as_origin",
+                    "description": "Accept HTTP connections with its interface as origin.",
+                    "type": "boolean",
+                    "default": false
+                },
+                {
+                    "name": "whitelist_dhcp_domains",
+                    "description": "Accept HTTP connections with with one of the DHCP domains listed in /etc/config/dhcp as origin.",
+                    "default": false,
+                    "type": "boolean"
+                },
+                {
+                    "name": "origin",
+                    "description": "Whitelist explicit origins.",
+                    "default": null,
+                    "type": "list"
+                }
+            ]
+        }
+    ]
+}

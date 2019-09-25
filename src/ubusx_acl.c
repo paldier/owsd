@@ -29,6 +29,11 @@
 
 static int ubus_object_path_compare(const void *k1, const void *k2, void *ptr);
 
+/* no way to iterate avl tree without providing element type */
+struct uxacl_node {
+	struct avl_node avl;
+};
+
 struct avl_tree uxacl_objects = AVL_TREE_INIT(uxacl_objects,
 					ubus_object_path_compare, false, NULL);
 
@@ -36,9 +41,17 @@ void ubusx_acl__init(void)
 {
 	lwsl_notice("%s\n", __func__);
 }
+
 void ubusx_acl__destroy(void)
 {
+	struct uxacl_node *node, *tmp;
+
 	lwsl_notice("%s\n", __func__);
+
+	avl_remove_all_elements(&uxacl_objects, node, avl, tmp) {
+		free((void *) node->avl.key);
+		free(node);
+	}
 }
 
 /* add space-separated list of objects:
@@ -69,7 +82,7 @@ void ubusx_acl__add_objects(char *objects)
 void ubusx_acl__add_object(char *object)
 {
 	int rv;
-	struct avl_node *node;
+	struct uxacl_node *node;
 	char *methods;
 
 	lwsl_notice("ubusx_acl__add objname=\"%s\"\n", object);
@@ -90,14 +103,14 @@ void ubusx_acl__add_object(char *object)
 		goto out;
 	}
 
-	node->key = strdup(object);
-	if (!node->key) {
+	node->avl.key = strdup(object);
+	if (!node->avl.key) {
 		perror("strdup");
 		goto out_node;
 	}
 
-	lwsl_notice("avl_insert: %s\n", (char *)node->key);
-	rv = avl_insert(&uxacl_objects, node);
+	lwsl_notice("avl_insert: %s\n", (char *)node->avl.key);
+	rv = avl_insert(&uxacl_objects, &node->avl);
 	if (rv) {
 		lwsl_notice("avl_insert failed\n");
 		goto out_key;
@@ -105,7 +118,7 @@ void ubusx_acl__add_object(char *object)
 
 	return;
 out_key:
-	free((void *)node->key);
+	free((void *)node->avl.key);
 out_node:
 	free(node);
 out:

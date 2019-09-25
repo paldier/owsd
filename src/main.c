@@ -33,13 +33,17 @@
 #include <sys/resource.h>
 
 #include "common.h"
-
 #include "ws_http.h"
 #include "wsubus.h"
 #include "wsubus_client.h"
 #include "rpc.h"
 #include "ubusx_acl.h"
 #include "config.h"
+#include "owsd-config.h"
+
+#if OWSD_JSON_VALIDATION
+#include "util_json_validation.h"
+#endif
 
 #ifndef WSD_DEF_UBUS_PATH
 #define WSD_DEF_UBUS_PATH "/var/run/ubus.sock"
@@ -187,6 +191,55 @@ static int create_vhost(struct lws_context *lws_ctx, struct lws_context_creation
 	*pvh_context = (unsigned long) vh_ctx;
 
 	return 0;
+}
+
+static int copy_vhinfo_list(struct vhinfo_list **copy, struct vhinfo_list *orig)
+{
+	int rc = 0;
+	struct vhinfo_list *newvh;
+	struct str_list *str, *str_cpy;
+
+	newvh = malloc(sizeof(*newvh));
+	if (!newvh) {
+		lwsl_err("OOM vhinfo init\n");
+		rc = -1;
+		goto error;
+	}
+
+	*newvh = (struct vhinfo_list){ {0} };
+
+	newvh->vh_ctx.name = orig->vh_ctx.name;
+	newvh->vh_ctx.restrict_origins = orig->vh_ctx.restrict_origins;
+	memcpy(&newvh->vh_info, &orig->vh_info, sizeof(struct lws_context_creation_info));
+
+	INIT_LIST_HEAD(&newvh->vh_ctx.origins);
+	INIT_LIST_HEAD(&newvh->vh_ctx.users);
+
+	/* copy users list */
+	list_for_each_entry(str, &orig->vh_ctx.users, list) {
+		str_cpy = calloc(1, sizeof(struct str_list));
+		if (!str_cpy)
+			continue;
+
+		str_cpy->str = str->str;
+		list_add_tail(&str_cpy->list, &newvh->vh_ctx.users);
+	}
+
+	/* copy origins list */
+	list_for_each_entry(str, &orig->vh_ctx.origins, list) {
+		str_cpy = calloc(1, sizeof(struct str_list));
+		if (!str_cpy)
+			continue;
+
+		str_cpy->str = str->str;
+		list_add_tail(&str_cpy->list, &newvh->vh_ctx.origins);
+	}
+
+	/* add this listening vhost into our list */
+	newvh->next = *copy;
+	*copy = newvh;
+error:
+	return rc;
 }
 
 int main(int argc, char *argv[])
@@ -615,10 +668,20 @@ ssl:
 	uloop_timeout_add(&global.utimer);
 	uloop_timeout_set(&global.utimer, 1000);
 
+#if OWSD_JSON_VALIDATION
+	schema_validator_init();
+#endif
+
 	lwsl_info("running uloop...\n");
 	uloop_run();
+	uloop_done();
+
+#if OWSD_JSON_VALIDATION
+	schema_validator_destroy();
+#endif
 
 #if WSD_HAVE_UBUSPROXY
+	ubusx_acl__destroy();
 	wsubus_client_clean();
 #endif
 

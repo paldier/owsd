@@ -203,7 +203,7 @@ out_str:
 static void clean_stale_clients_cb(struct ubus_request *req, int type, struct blob_attr *msg)
 {
 	char *json_str;
-	struct json_object *json_msg;
+	struct json_object *json_msg, *clients;
 	int reconnect_count, index;
 
 	UNUSED(req);
@@ -221,15 +221,29 @@ static void clean_stale_clients_cb(struct ubus_request *req, int type, struct bl
 	if (!json_object_is_type(json_msg, json_type_object))
 		goto out_json;
 
-	json_object_object_foreach(json_msg, name, client) {
-		UNUSED(name);
+	json_object_object_get_ex(json_msg, "clients", &clients);
+	if (!clients)
+		goto out_json;
+
+	if (!json_object_is_type(clients, json_type_array))
+		goto out_json;
+
+	for (index = 0; index < json_object_array_length(clients); index++) {
+		struct json_object *client;
+
+		client = json_object_array_get_idx(clients, index);
+		if (!client)
+			continue;
+
 		reconnect_count = json_get_int(client, "reconnect_count");
 		if (reconnect_count <= MAX_RECONNECT_COUNT)
 			continue;
+
 		index = json_get_int(client, "index");
 		if (index >= 0)
 			owsd_remove_client(index, NULL);
 	}
+
 out_json:
 	json_object_put(json_msg);
 out_str:

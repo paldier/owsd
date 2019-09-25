@@ -1,0 +1,10 @@
+{
+  "object": "owsd.ubusproxy",
+  "methods": [
+    {
+      "method": "list",
+      "rc": 0
+    }
+  ]
+}
+

@@ -29,6 +29,11 @@
 #include "rpc.h"
 #include "access_check.h"
 #include "util_jsonrpc.h"
+#include "owsd-config.h"
+
+#if OWSD_JSON_VALIDATION
+#include "util_json_validation.h"
+#endif
 
 #include <json-c/json.h>
 #include <libubox/blobmsg_json.h>
@@ -39,7 +44,12 @@
 #include <strings.h>
 #include <errno.h>
 #include <assert.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <fnmatch.h>
+
+
 
 static lws_callback_function wsubus_cb;
 
@@ -125,7 +135,6 @@ static int wsubus_filter(struct lws *wsi)
 	return rc;
 }
 
-
 /**
  * \brief process one complete JSON RPC message (in blob) from client
  */
@@ -137,6 +146,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 	struct jsonrpc_blob_req *jsonrpc_req = malloc(sizeof(*jsonrpc_req));
 	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct ubusrpc_blob *ubusrpc_req = NULL;
+	char *str = NULL;
 	int e = 0;
 
 	(void)client;
@@ -146,7 +156,6 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		lwsl_notice("Blocking requests! Full queue for peer %p, queue length %d, req max=%d!\n", peer, peer->u.client.rpc_q_len, prog->req_max);
 		goto out;
 	}
-
 
 	if (!jsonrpc_req) {
 		/* free of NULL is no-op so okay */
@@ -161,6 +170,21 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		e = JSONRPC_ERRORCODE__INVALID_REQUEST;
 		goto out;
 	}
+
+#if OWSD_JSON_VALIDATION
+	str = blobmsg_format_json(blob, true);
+	if (!str)
+		goto out;
+
+	/* validate arguments of jsonrpc method calls */
+	if (!validate_json_call_string(str)) {
+		e = JSONRPC_ERRORCODE__INPUT_FORMAT_ERROR;
+		free(str);
+		goto out;
+	}
+
+	free(str);
+#endif
 
 	/* parse the RPC method-specific arguments and other data */
 	ubusrpc_req = ubusrpc_blob_parse(jsonrpc_req->method, jsonrpc_req->params, &e);

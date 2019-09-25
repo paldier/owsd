@@ -38,10 +38,14 @@
 #include <libubus.h>
 #include <libwebsockets.h>
 
+#include <json-validator.h>
+
 #include <strings.h>
 #include <errno.h>
 
 static lws_callback_function ws_ubusproxy_cb;
+
+
 
 struct lws_protocols ws_ubusproxy_proto = {
 	WSUBUS_PROTO_NAME,

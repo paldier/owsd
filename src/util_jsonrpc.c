@@ -43,6 +43,8 @@ char *jsonrpc__resp_error(struct blob_attr *id, int error_code, struct blob_attr
 			error_code == JSONRPC_ERRORCODE__INVALID_REQUEST  ? "Invalid Request" :
 			error_code == JSONRPC_ERRORCODE__INVALID_PARAMS   ? "Invalid params" :
 			error_code == JSONRPC_ERRORCODE__METHOD_NOT_FOUND ? "Method not found" :
+			error_code == JSONRPC_ERRORCODE__INPUT_FORMAT_ERROR ? "Invalid Input Format" :
+			error_code == JSONRPC_ERRORCODE__OUTPUT_FORMAT_ERROR ? "Invalid Output Format" :
 			"Other error");
 	if (error_data && !strcmp("data", blobmsg_name(error_data)))
 		blobmsg_add_blob(&resp_buf, error_data);
@@ -190,7 +192,7 @@ static char *jsonrpc__req_to_string(
 		/* add the argument object at the end of the params array */
 		/* jo_arg points to arg or to a new empty object */
 		if (arg) {
-			jo_arg = arg;
+			jo_arg = json_object_get(arg);
 		} else {
 			jo_arg = json_object_new_object();
 			if (!jo_arg)
@@ -211,7 +213,7 @@ static char *jsonrpc__req_to_string(
 	}
 
 	/* add the params array into main json object, jo */
-	json_object_object_add(jo, "params", jo_params);
+	json_object_object_add(jo, "params", json_object_get(jo_params));
 
 	/* prepare the string for return */
 	jstring = json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PLAIN);
@@ -248,3 +250,4 @@ char *jsonrpc__req_ubuscall(int id, const char *sid,
 
 	return jsonrpc__req_to_string(id, sid, "call", obj, method, arg, NULL);
 }
+

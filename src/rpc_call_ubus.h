@@ -19,25 +19,21 @@
  */
 #pragma once
 
+#include "util_jsonrpc.h"
 #include "rpc_call.h"
 #include "wsubus.impl.h"
 #include "access_check.h"
 #include "common.h"
+#include "owsd-config.h"
 
 #include <time.h>
 #include <libubus.h>
+#include <json-c/json.h>
 
-/*  per-request context {{{ */
-struct wsubus_percall_ctx {
-	union {
-		struct ws_request_base;
-		struct ws_request_base _base;
-	};
+#if OWSD_JSON_VALIDATION
+#include "util_json_validation.h"
+#endif
 
-	struct ubusrpc_blob_call *call_args;
-	struct ubus_request *invoke_req;
-	struct wsubus_client_access_check_ctx access_check;
-};
 
 static void wsubus_percall_ctx_destroy(struct ws_request_base *base)
 {
@@ -82,9 +78,10 @@ static struct wsubus_percall_ctx *wsubus_percall_ctx_create(
 }
 /* }}} */
 
-
 static void wsubus_call_on_completed(struct ubus_request *req, int status)
 {
+	char *json_str;
+
 	lwsl_debug("ubus call %p completed: %d\n", req, status);
 
 	struct wsubus_percall_ctx *curr_call = req->priv;
@@ -95,8 +92,31 @@ static void wsubus_call_on_completed(struct ubus_request *req, int status)
 	if (req->status_code != status)
 		lwsl_warn("status != req->status_code (%d != %d)\n", status, req->status_code);
 
-	char *json_str = jsonrpc__resp_ubus(curr_call->id, status, blobmsg_len(curr_call->retbuf.head) ? blobmsg_data(curr_call->retbuf.head) : NULL);
 
+#if OWSD_JSON_VALIDATION
+	if (blobmsg_len(curr_call->retbuf.head)) {
+		char *str = blobmsg_format_json(blobmsg_data(curr_call->retbuf.head), true);
+		struct json_object *obj = json_tokener_parse(str);
+
+		if (str)
+			free(str);
+
+		if (obj) {
+			int rv = validate_json_object(obj, curr_call->call_args->object, curr_call->call_args->method, SCHEMA_OUTPUT_CALL);
+
+			json_object_put(obj);
+			if (!rv) {
+				json_str = jsonrpc__resp_error(curr_call->id, JSONRPC_ERRORCODE__OUTPUT_FORMAT_ERROR, NULL);
+				goto out;
+			}
+		}
+	}
+#endif
+
+	json_str = jsonrpc__resp_ubus(curr_call->id, status, blobmsg_len(curr_call->retbuf.head) ? blobmsg_data(curr_call->retbuf.head) : NULL);
+#if OWSD_JSON_VALIDATION
+out:
+#endif
 	wsu_queue_write_str(curr_call->wsi, json_str);
 	free(json_str);
 	free(req);
@@ -123,7 +143,8 @@ static void wsubus_call_on_retdata(struct ubus_request *req, int type, struct bl
 
 	struct wsubus_percall_ctx *curr_call = req->priv;
 
-	blobmsg_add_field(&curr_call->retbuf, blobmsg_type(msg), "", blobmsg_data(msg), blobmsg_data_len(msg));
+	if (msg)
+		blobmsg_add_field(&curr_call->retbuf, blobmsg_type(msg), "", blobmsg_data(msg), blobmsg_data_len(msg));
 }
 
 static int wsubus_call_do_call(struct wsubus_percall_ctx *curr_call)

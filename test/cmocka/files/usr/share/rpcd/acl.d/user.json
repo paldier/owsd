@@ -1,0 +1,18 @@
+{
+        "user": {
+                "description": "Access controls for unauthenticated requests",
+                "read": {
+                        "ubus": {
+                                "restricted_template": [
+                                        "test"
+                                ],
+                                "invalid_template": [
+                                        "test"
+                                ]
+                        },
+                       	"owsd": [
+                                "restricted_template"
+                        ]
+                }
+        }
+}

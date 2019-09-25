@@ -151,6 +151,8 @@ out:
 	return;
 }
 
+#if 0
+// Deprecated as there may be multiple entries for a client
 static struct client_connection_info *get_client_by_ip(const char *ip)
 {
 	struct client_connection_info *client;
@@ -161,6 +163,7 @@ static struct client_connection_info *get_client_by_ip(const char *ip)
 
 	return NULL;
 }
+#endif
 
 static struct client_connection_info *get_client_by_index(int index)
 {
@@ -262,14 +265,19 @@ static bool unique_ip(const char *addr)
 {
 	struct client_connection_info *client;
 
-	client = get_client_by_ip(addr);
-	if (!client)
-		return true;
+	list_for_each_entry(client, &connect_infos.clients, list) {
+		if (strcmp(addr, client->connection_info.address))
+			continue;
 
-	/* a client in a teardown state is waiting to be removed, and can therefore
-	 * be considered to be a unique/non-existing entry
-	 */
-	return client->state == CONNECTION_STATE_TEARINGDOWN;
+		/* a client in a teardown state is waiting to be removed, and can
+		be considered to be a unique/non-existing entry */
+		if (client->state == CONNECTION_STATE_TEARINGDOWN)
+			continue;
+
+		return false;
+	}
+
+	return true;
 }
 
 int wsubus_client_create(const char *addr, int port,
@@ -473,6 +481,25 @@ int add_client(struct ubus_context *ctx, struct ubus_object *obj,
 	return ret;
 }
 
+static void manage_remove_client(struct client_connection_info *client)
+{
+	switch (client->state) {
+	case CONNECTION_STATE_DISCONNECTED:
+		wsubus_client_del(client);
+		break;
+	case CONNECTION_STATE_CONNECTING:
+		client->state = CONNECTION_STATE_TEARINGDOWN;
+		break;
+	case CONNECTION_STATE_CONNECTED:
+		client->state = CONNECTION_STATE_TEARINGDOWN;
+		lws_callback_on_writable(client->wsi);
+		break;
+	case CONNECTION_STATE_TEARINGDOWN:
+	default:
+		break;
+	 }
+}
+
 /** To delete a client you need to wait until it is writeable. That's done
  * by triggering the lws_callback_on_writeable and then in the callback
  * figure out if the callback was triggered to send data or to get destroyed
@@ -493,10 +520,16 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 
 		index = blobmsg_get_u32(tb[CLIENT_REM_INDEX]);
 		client = get_client_by_index(index);
+		manage_remove_client(client);
 		lwsl_notice("remove client index %d\n", index);
 	} else if (tb[CLIENT_REM_IP]) {
 		ip = blobmsg_get_string(tb[CLIENT_REM_IP]);
-		client = get_client_by_ip(ip);
+		list_for_each_entry(client, &connect_infos.clients, list) {
+			if (strcmp(ip, client->connection_info.address))
+				continue;
+
+			manage_remove_client(client);
+		}
 		lwsl_notice("remove client ip %s\n", ip);
 	} else
 		return UBUS_STATUS_INVALID_ARGUMENT;
@@ -504,21 +537,6 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 	if (!client)
 		return UBUS_STATUS_INVALID_ARGUMENT;
 
-	switch (client->state) {
-	case CONNECTION_STATE_DISCONNECTED:
-		wsubus_client_del(client);
-		break;
-	case CONNECTION_STATE_CONNECTING:
-		client->state = CONNECTION_STATE_TEARINGDOWN;
-		break;
-	case CONNECTION_STATE_CONNECTED:
-		client->state = CONNECTION_STATE_TEARINGDOWN;
-		lws_callback_on_writable(client->wsi);
-		break;
-	case CONNECTION_STATE_TEARINGDOWN:
-	default:
-		break;
-	}
 
 	return UBUS_STATUS_OK;
 }
@@ -557,6 +575,7 @@ int list_client(struct ubus_context *ctx, struct ubus_object *obj,
 	struct client_connection_info *client;
 	struct blob_buf bb = {};
 	long index = -1;
+	void *arr;
 
 	blobmsg_parse(client_index_policy, __CLIENT_INDEX_MAX, tb,
 			blob_data(msg), blob_len(msg));
@@ -566,6 +585,9 @@ int list_client(struct ubus_context *ctx, struct ubus_object *obj,
 	if (tb[CLIENT_INDEX])
 		index = blobmsg_get_u32(tb[CLIENT_INDEX]);
 
+	if (index == -1)
+		arr = blobmsg_open_array(&bb, "clients");
+
 	list_for_each_entry(client, &connect_infos.clients, list) {
 		if (index == -1)
 			dump_client(&bb, client);
@@ -574,6 +596,9 @@ int list_client(struct ubus_context *ctx, struct ubus_object *obj,
 			break;
 		}
 	}
+
+	if (index == -1)
+		blobmsg_close_array(&bb, arr);
 
 	ubus_send_reply(ctx, req, bb.head);
 

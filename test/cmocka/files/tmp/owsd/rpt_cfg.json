@@ -1,0 +1,22 @@
+{
+    "global":{
+       "socket":"\/var\/run\/ubus.sock",
+       "www":"\/www"
+    },
+    "owsd-listen":{
+       "loopback":[
+         {
+            "port":443,
+            "cert":"\/etc\/ubusx\/ubusx_demo_only.crt",
+            "key":"\/etc\/ubusx\/ubusx_demo_only.key",
+            "ca":"\/etc\/ubusx\/ubusxDemoCA.crt",
+            "interface":"127.0.0.1",
+            "ubusx_acl":"template toggling_template",
+            "origin_check":false,
+            "origin":[
+               "*"
+            ]
+         }
+       ]
+    }
+ }

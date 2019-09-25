@@ -4,7 +4,49 @@ include:
 
 stages:
     - static_code_analysis
-   
+    - unit_test
+    - functional_test
+    - api_test
+
 variables:
   DEBUG: 'TRUE'
-  
+  SOURCE_FOLDER: "."
+
+run_unit_test:
+    stage: unit_test
+    image: iopsys/code-analysis:0.13
+    allow_failure: true
+    script:
+        - "./gitlab-ci/setup.sh"
+        - "./gitlab-ci/unit-test.sh"
+
+    artifacts:
+        when: always
+        paths:
+            - unit-coverage.tar.gz
+
+run_functional_test:
+    stage: functional_test
+    image: iopsys/code-analysis:0.13
+    allow_failure: true
+    script:
+        - "./gitlab-ci/setup.sh"
+        - "./gitlab-ci/functional-test.sh"
+
+    artifacts:
+        when: always
+        paths:
+            - functional-coverage.tar.gz
+
+run_api_test:
+    stage: api_test
+    image: iopsys/code-analysis:0.13
+    allow_failure: true
+    script:
+        - "./gitlab-ci/setup.sh"
+        - "./gitlab-ci/functional-api-test.sh"
+
+    artifacts:
+        when: always
+        paths:
+            - functional-api-coverage.tar.gz

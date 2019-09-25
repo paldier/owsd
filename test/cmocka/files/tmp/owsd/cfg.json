@@ -1,0 +1,26 @@
+{
+    "global": {
+        "socket": "\/var\/run\/ubus.sock", "www": "\/www"
+    },
+    "ubusproxy": {
+        "peer_cert": "\/etc\/ubusx\/ubusx_demo_only.crt",
+        "peer_key": "\/etc\/ubusx\/ubusx_demo_only.key",
+        "peer_ca": "\/etc\/ubusx\/ubusxDemoCA.crt",
+        "peer": [
+            "wss:\/\/127.0.0.1:443"
+        ],
+        "object": [ ]
+    },
+    "owsd-listen": {
+        "loopback":[
+            {
+                "port":80,
+                "interface":"127.0.0.1",
+                "origin_check":false,
+                "origin":[
+                    "*"
+                ]
+            }
+        ]
+    }
+}

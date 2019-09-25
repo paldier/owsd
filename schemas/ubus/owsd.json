@@ -1,0 +1,131 @@
+{
+    "definitions": {
+        "ipv4_t": {
+            "type": "string",
+            "pattern": "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}$"
+        }
+    },
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "http://example.com/root.json",
+    "type": "object",
+    "title": "owsd.ubusproxy",
+    "object": "owsd.ubusproxy",
+    "additionalProperties": false,
+    "properties": {
+        "list": {
+            "type": "object",
+            "properties": {
+                "output": {
+                    "type":"object",
+                    "required": [
+                        "clients"
+                    ],
+                    "properties": {
+                        "clients": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "index",
+                                    "ip",
+                                    "port",
+                                    "path",
+                                    "protocol",
+                                    "SSL",
+                                    "type",
+                                    "state",
+                                    "reconnect_count"
+                                ],
+                                "properties": {
+                                    "index": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "ip": {
+                                        "$ref": "#/definitions/ipv4_t"
+                                    },
+                                    "port": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 65535
+                                    },
+                                    "path": {
+                                        "type": "string"
+                                    },
+                                    "protocol": {
+                                        "type": "string"
+                                    },
+                                    "SSL": {
+                                        "type": "boolean"
+                                    },
+                                    "type": {
+                                        "type": "string"
+                                    },
+                                    "state": {
+                                        "type": "string",
+                                        "enum": [
+                                            "Disconnected",
+                                            "Connected",
+                                            "Connecting"
+                                        ]
+                                    },
+                                    "reconnect_count": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "input": {
+                    "type": "object",
+                    "properties": { }
+                }
+            }
+        },
+        "add": {
+            "type": "object",
+            "properties": {
+                "output": {
+                    "type": "object",
+                    "properties": { }
+                },
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "ip": {
+                            "$ref": "#/definitions/ipv4_t"
+                        },
+                        "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        }
+                    }
+                }
+            }
+        },
+        "remove": {
+            "type": "object",
+            "properties": {
+                "output": {
+                    "type": "object",
+                    "properties": { }
+                },
+                "input": {
+                    "type": "object",
+                    "properties": {
+                        "ip": {
+                            "$ref": "#/definitions/ipv4_t"
+                        },
+                        "index": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

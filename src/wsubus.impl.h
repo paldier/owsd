@@ -221,22 +221,6 @@ static inline void wsu_proxied_call_free(struct wsu_remote_bus *remote, struct w
 #endif /* WSD_HAVE_UBUSPROXY */
 
 /**
- * \brief used to tie access_check_req context into list to be tracked/cancellable
- */
-struct wsubus_client_access_check_ctx {
-	struct wsubus_access_check_req *req;
-	void (*destructor)(struct wsubus_client_access_check_ctx *);
-	struct list_head acq;
-};
-
-/*{{{ I/O handling */
-struct wsu_writereq {
-	size_t len;
-	size_t written;
-
-
-
-/**
  * \brief queue text data for writing to the other end of WebSocket
  *
  * \param wsi whom to write to

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project(owsd C)
+project(owsd)
 add_definitions(-Os -Wall -std=gnu11 -fms-extensions -fplan9-extensions -D_XOPEN_SOURCE=700 )
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules")
@@ -49,6 +49,17 @@ find_library(JSON_LIBRARIES NAMES json-c)
 set(WSD_LINK ${LIBWEBSOCKETS_LIBRARIES} ${LIBUBOX_LIBRARIES} ${JSON_LIBRARIES})
 set(WSD_INCLUDE ${LIBWEBSOCKETS_INCLUDE_DIRS})
 
+if (OWSD_JSON_VALIDATION)
+	find_library(VALIDATOR_LIBRARIES NAMES json-validator)
+	find_library(SCHEMA_VALIDATOR_LIBRARIES NAMES json-schema-validator)
+
+	list(APPEND WSD_LINK ${VALIDATOR_LIBRARIES} ${SCHEMA_VALIDATOR_LIBRARIES})
+
+	list(APPEND SOURCES
+		src/util_json_validation.c
+		)
+endif()
+
 if (WSD_HAVE_UBUS)
 	find_library(UBUS_LIBRARIES NAMES ubus)
 	find_path(UBUS_INCLUDE_DIRS libubus.h)
@@ -97,6 +108,31 @@ if (OWSD_UPROXYD)
 	target_link_libraries(uproxyd ${UPROXYD_LINK})
 endif()
 include_directories(${WSD_INCLUDE})
+
+#testing
+IF(CMAKE_BUILD_TYPE STREQUAL Debug)
+	OPTION(ENABLE_BUILD_TESTS "Build tests" ON)
+	#OPTION(ENABLE_VALGRIND_TESTS "Build tests with valgrind" ON)
+ELSE()
+	OPTION(ENABLE_BUILD_TESTS "Build tests" OFF)
+	#OPTION(ENABLE_VALGRIND_TESTS "Build tests with valgrind" OFF)
+ENDIF()
+
+IF(ENABLE_BUILD_TESTS)
+	FIND_PACKAGE(CMocka)
+	if(CMOCKA_FOUND)
+		INCLUDE(CodeCoverage)
+		APPEND_COVERAGE_COMPILER_FLAGS()
+		SET(COVERAGE_EXCLUDES '*/main.c' '/usr/include/*' '*/*_test.c' '*/template.c' '*/uproxyd.c')
+		ADD_LIBRARY(${PROJECT_NAME}-api SHARED ${SOURCES})
+		MESSAGE("-- Building tests")
+		ENABLE_TESTING()
+		ADD_SUBDIRECTORY(test/cmocka)
+		ADD_SUBDIRECTORY(test/cmocka/template_obj)
+	ELSE(CMOCKA_FOUND)
+		MESSAGE("-- CMocka not found")
+	ENDIF(CMOCKA_FOUND)
+ENDIF(ENABLE_BUILD_TESTS)
 
 install(TARGETS owsd RUNTIME DESTINATION bin)
 if (OWSD_UPROXYD)

@@ -45,6 +45,8 @@ struct prog_context {
 	struct DBusConnection *dbus_ctx;
 #endif
 
+	struct avl_tree schema_objects;
+
 	const char *www_path;
 	const char *redir_from;
 	const char *redir_to;

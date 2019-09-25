@@ -3,7 +3,6 @@ uproxyd
 *.swp
 build/
 bin/
-test/
 .built*
 .configured_*
 .dep_files
