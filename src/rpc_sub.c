@@ -21,10 +21,10 @@
 /*
  * ubus over websocket - ubus event subscription
  */
-#include "rpc_sub.h"
 
 #include "common.h"
 #include "wsubus.impl.h"
+#include "rpc_sub.h"
 #include "rpc.h"
 #include "access_check.h"
 
@@ -383,13 +383,6 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 }
 
 #if WSD_HAVE_UBUS
-struct wsubus_ev_notif {
-	char *type;
-	struct blob_attr *msg;
-	struct ws_sub_info_ubus *info;
-	struct wsubus_client_access_check_ctx cr;
-};
-
 static void wsubus_ev_destroy_ctx(struct wsubus_ev_notif *t)
 {
 	free(t->type);

@@ -26,6 +26,17 @@
 #include <stdint.h>
 #include "rpc.h"
 
+#if WSD_HAVE_UBUS
+#include "wsubus.impl.h"
+
+struct wsubus_ev_notif {
+	char *type;
+	struct blob_attr *msg;
+	struct ws_sub_info_ubus *info;
+	struct wsubus_client_access_check_ctx cr;
+};
+#endif
+
 struct ubusrpc_blob_sub {
 	union {
 		struct ubusrpc_blob;

@@ -21,6 +21,7 @@
 #include "access_check.h"
 #include "common.h"
 #include "wsubus.impl.h"
+#include "rpc_sub.h"
 #include "ubusx_acl.h"
 
 #if WSD_HAVE_UBUS
@@ -307,7 +308,34 @@ int wsubus_access_check_(
 		}
 #ifdef LWS_OPENSSL_SUPPORT
 		else if (!strcmp("tls-certificate", esid)) {
+			struct json_object *obj = NULL;
+
+			/**
+			 * on ubus.object.add/remove event, make acl check on path
+			 * itself rather than object, this solves issue of objects
+			 * not being added/removed on master when daemon goes up/down
+			 */
+			if (ctx && strstr(object, "ubus.object.")) {
+				struct wsubus_ev_notif *ev_ctx = (struct wsubus_ev_notif *) ctx;
+				char *str = blobmsg_format_json(ev_ctx->msg, true);
+
+				obj = json_tokener_parse(str);
+				if (obj) {
+					struct json_object *path;
+
+					json_object_object_get_ex(obj, "path", &path);
+					if (path)
+						object = json_object_get_string(path);
+				}
+
+				if (str)
+					free(str);
+			}
+
 			res = wsu_ext_check_tls(wsi, object);
+
+			if (obj)
+				json_object_put(obj);
 		}
 #endif
 	}
