@@ -67,6 +67,7 @@ struct wsu_peer {
 		size_t len;
 	} curr_msg; /* read */
 	struct list_head write_q; /* write */
+	uint32_t write_q_len;
 
 	char sid[UBUS_SID_MAX_STRLEN + 1];
 

@@ -82,6 +82,9 @@ static void wsubus_call_on_completed(struct ubus_request *req, int status)
 	lwsl_debug("ubus call %p completed: %d\n", req, status);
 
 	struct wsubus_percall_ctx *curr_call = req->priv;
+	struct wsu_peer *peer = wsi_to_peer(curr_call->wsi);
+
+	peer->write_q_len--;
 
 	assert(curr_call->invoke_req == req);
 

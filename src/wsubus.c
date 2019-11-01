@@ -123,6 +123,7 @@ static int wsubus_filter(struct lws *wsi)
 	return rc;
 }
 
+
 /**
  * \brief process one complete JSON RPC message (in blob) from client
  */
@@ -130,12 +131,20 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		struct blob_attr *blob)
 {
 	const struct wsu_client_session *client = wsi_to_client(wsi);
-	lwsl_info("client %u handling blobmsg buf\n", client->id);
-	(void)client;
-
-	struct jsonrpc_blob_req *jsonrpc_req = malloc(sizeof *jsonrpc_req);
+	struct jsonrpc_blob_req *jsonrpc_req = malloc(sizeof(*jsonrpc_req));
+	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct ubusrpc_blob *ubusrpc_req = NULL;
 	int e = 0;
+
+	(void)client;
+	lwsl_info("client %u handling blobmsg buf\n", client->id);
+
+	if (peer->write_q_len > 10) {
+		lwsl_notice("%s %d: Blocking requests! Full queue for peer %p!\n", __func__, __LINE__, peer);
+		goto out;
+	}
+
+
 	if (!jsonrpc_req) {
 		/* free of NULL is no-op so okay */
 		lwsl_err("failed to alloc\n");
@@ -157,7 +166,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		goto out;
 	}
 
-	wsu_sid_update(wsi_to_peer(wsi), ubusrpc_req->sid);
+	wsu_sid_update(peer, ubusrpc_req->sid);
 
 	/* call handler which was set by parse function */
 	if (ubusrpc_req->handler(wsi, ubusrpc_req, jsonrpc_req->id) != 0) {
@@ -165,7 +174,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		e = JSONRPC_ERRORCODE__OTHER;
 		goto out;
 	}
-
+	peer->write_q_len++;
 out:
 	/* send jsonrpc error code if we failed...
 	 * otherwise handler itself is in charge of sending reply */
