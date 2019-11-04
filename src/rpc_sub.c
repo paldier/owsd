@@ -244,7 +244,7 @@ out:
 	char *response = jsonrpc__resp_ubus(id, ret, NULL);
 	wsu_queue_write_str(wsi, response);
 	free(response);
-	peer->u.client.write_q_len--;
+	peer->u.client.rpc_q_len--;
 	return 0;
 }
 
@@ -348,7 +348,7 @@ int ubusrpc_handle_sub_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, stru
 	free(response_str);
 	free(ubusrpc->src_blob);
 	free(ubusrpc);
-	peer->u.client.write_q_len--;
+	peer->u.client.rpc_q_len--;
 	return 0;
 }
 
@@ -382,7 +382,7 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 	free(response);
 	free(ubusrpc->src_blob);
 	free(ubusrpc);
-	peer->u.client.write_q_len--;
+	peer->u.client.rpc_q_len--;
 	return 0;
 }
 

@@ -106,7 +106,7 @@ static int handle_list_ubus(struct ws_request_base *req, struct lws *wsi, struct
 		free(response_str);
 	}
 
-	peer->u.client.write_q_len--;
+	peer->u.client.rpc_q_len--;
 
 	return 0;
 }

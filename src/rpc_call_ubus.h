@@ -32,7 +32,7 @@ static void wsubus_percall_ctx_destroy(struct ws_request_base *base)
 	struct wsubus_percall_ctx *call_ctx = container_of(base, struct wsubus_percall_ctx, _base);
 	struct wsu_peer *peer = wsi_to_peer(call_ctx->wsi);
 
-	peer->u.client.write_q_len--;
+	peer->u.client.rpc_q_len--;
 	free(call_ctx->id);
 
 	call_ctx->call_args->destroy(&call_ctx->call_args->_base);

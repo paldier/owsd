@@ -29,6 +29,10 @@
 struct prog_context {
 	struct uloop_fd **ufds;
 	size_t num_ufds;
+	size_t num_active_ses;
+
+	int req_max;
+	int total_req_max;
 
 	struct uloop_timeout utimer;
 

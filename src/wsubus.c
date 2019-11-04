@@ -41,8 +41,6 @@
 #include <assert.h>
 #include <fnmatch.h>
 
-#define REQUEST_MAX 10000
-
 static lws_callback_function wsubus_cb;
 
 /** protocol + callback for RPC server */
@@ -132,6 +130,7 @@ static int wsubus_filter(struct lws *wsi)
 static void wsu_on_msg_from_client(struct lws *wsi,
 		struct blob_attr *blob)
 {
+	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 	const struct wsu_client_session *client = wsi_to_client(wsi);
 	struct jsonrpc_blob_req *jsonrpc_req = malloc(sizeof(*jsonrpc_req));
 	struct wsu_peer *peer = wsi_to_peer(wsi);
@@ -141,8 +140,8 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 	(void)client;
 	lwsl_info("client %u handling blobmsg buf\n", client->id);
 
-	if (peer->u.client.write_q_len > REQUEST_MAX) {
-		lwsl_notice("%s %d: Blocking requests! Full queue for peer %p!\n", __func__, __LINE__, peer);
+	if (peer->u.client.rpc_q_len > prog->req_max) {
+		lwsl_notice("Blocking requests! Full queue for peer %p, queue length %d, req max=%d!\n", peer, peer->u.client.rpc_q_len, prog->req_max);
 		goto out;
 	}
 
@@ -176,7 +175,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		e = JSONRPC_ERRORCODE__OTHER;
 		goto out;
 	}
-	peer->u.client.write_q_len++;
+	peer->u.client.rpc_q_len++;
 out:
 	/* send jsonrpc error code if we failed...
 	 * otherwise handler itself is in charge of sending reply */
@@ -314,7 +313,7 @@ static int wsubus_cb(struct lws *wsi,
 
 	case LWS_CALLBACK_ESTABLISHED:
 		lwsl_notice(WSUBUS_PROTO_NAME ": established\n");
-		if (0 != wsu_peer_init(peer, WSUBUS_ROLE_CLIENT))
+		if (wsu_peer_init(wsi, peer, WSUBUS_ROLE_CLIENT) != 0)
 			return -1;
 		break;
 
