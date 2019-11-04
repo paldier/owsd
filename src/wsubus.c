@@ -41,6 +41,8 @@
 #include <assert.h>
 #include <fnmatch.h>
 
+#define REQUEST_MAX 10000
+
 static lws_callback_function wsubus_cb;
 
 /** protocol + callback for RPC server */
@@ -139,7 +141,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 	(void)client;
 	lwsl_info("client %u handling blobmsg buf\n", client->id);
 
-	if (peer->write_q_len > 10) {
+	if (peer->u.client.write_q_len > REQUEST_MAX) {
 		lwsl_notice("%s %d: Blocking requests! Full queue for peer %p!\n", __func__, __LINE__, peer);
 		goto out;
 	}
@@ -174,7 +176,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		e = JSONRPC_ERRORCODE__OTHER;
 		goto out;
 	}
-	peer->write_q_len++;
+	peer->u.client.write_q_len++;
 out:
 	/* send jsonrpc error code if we failed...
 	 * otherwise handler itself is in charge of sending reply */
@@ -326,7 +328,6 @@ static int wsubus_cb(struct lws *wsi,
 	case LWS_CALLBACK_CLIENT_WRITEABLE:
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
-
 		/* client is leaving */
 	case LWS_CALLBACK_CLOSED:
 		lwsl_notice(WSUBUS_PROTO_NAME ": closed\n");

@@ -56,6 +56,38 @@
 #define MAX_PROXIED_CALLS 20
 
 /**
+ * \brief used to tie access_check_req context into list to be tracked/cancellable
+ */
+struct wsubus_client_access_check_ctx {
+	struct wsubus_access_check_req *req;
+	void (*destructor)(struct wsubus_client_access_check_ctx *);
+	struct list_head acq;
+};
+
+/*{{{ I/O handling */
+struct wsu_writereq {
+	size_t len;
+	size_t written;
+
+	struct list_head wq;
+
+	unsigned char buf[0];
+};
+
+/*  per-request context {{{ */
+struct wsubus_percall_ctx {
+	union {
+		struct ws_request_base;
+		struct ws_request_base _base;
+	};
+
+	struct ubusrpc_blob_call *call_args;
+	struct ubus_request *invoke_req;
+	struct wsubus_client_access_check_ctx access_check;
+	struct timespec req_start;
+};
+
+/**
  * \brief lws allocates one instance of this for each websocket connection
  *
  * Used to store per-connection information and structures
@@ -67,7 +99,6 @@ struct wsu_peer {
 		size_t len;
 	} curr_msg; /* read */
 	struct list_head write_q; /* write */
-	uint32_t write_q_len;
 
 	char sid[UBUS_SID_MAX_STRLEN + 1];
 
@@ -86,6 +117,10 @@ struct wsu_peer {
 		 */
 		struct wsu_client_session {
 			unsigned int id;
+			/* TODO: move into client */
+			uint32_t write_q_len;
+			struct uloop_timeout percall_cleaner;
+			/* end TODO */
 			/* used to track/cancel the long-lived handles or async requests */
 			struct list_head rpc_call_q;
 			struct list_head access_check_q;
@@ -183,24 +218,7 @@ static inline void wsu_proxied_call_free(struct wsu_remote_bus *remote, struct w
 /*}}} */
 #endif /* WSD_HAVE_UBUSPROXY */
 
-/**
- * \brief used to tie access_check_req context into list to be tracked/cancellable
- */
-struct wsubus_client_access_check_ctx {
-	struct wsubus_access_check_req *req;
-	void (*destructor)(struct wsubus_client_access_check_ctx *);
-	struct list_head acq;
-};
 
-/*{{{ I/O handling */
-struct wsu_writereq {
-	size_t len;
-	size_t written;
-
-	struct list_head wq;
-
-	unsigned char buf[0];
-};
 
 /**
  * \brief queue text data for writing to the other end of WebSocket
@@ -257,6 +275,44 @@ static inline int wsu_sid_update(struct wsu_peer *peer, const char *sid)
 	return 0;
 }
 
+static inline void wsubus_percall_clean_stale(struct uloop_timeout *t)
+{
+	struct wsu_client_session *client = container_of(t, struct wsu_client_session, percall_cleaner);
+	struct wsubus_percall_ctx *cq, *tmp;
+	struct timespec cur_time, diff;
+	int passed;
+
+	clock_gettime(CLOCK_MONOTONIC, &cur_time);
+	list_for_each_entry_safe(cq, tmp, &client->rpc_call_q, cq) {
+		diff.tv_sec = cur_time.tv_sec - cq->req_start.tv_sec;
+		diff.tv_nsec = cur_time.tv_nsec - cq->req_start.tv_nsec;
+
+		passed = diff.tv_sec;
+
+		/* increment second counter for each additional nsec */
+		while (diff.tv_nsec > 1000000000) {
+			passed++;
+			diff.tv_nsec -= 1000000000;
+		}
+
+		/* if negative, subtract till positive */
+		while (diff.tv_nsec < 0) {
+			passed--;
+			diff.tv_nsec += 1000000000;
+		}
+
+		/* if less than 5 seconds passed, leave the request */
+		if (passed < 5)
+			continue;
+
+		lwsl_debug("Cleaning stale asynchronous request\n", __func__, __LINE__);
+		list_del(&cq->cq);
+		cq->cancel_and_destroy(&cq->_base);
+	}
+
+	uloop_timeout_set(t, 2 * 1000);
+}
+
 /**
  * \brief initializes the peer struct
  */
@@ -269,6 +325,11 @@ static inline int wsu_peer_init(struct wsu_peer *peer, enum wsu_role role)
 		/* these lists will keep track of async calls in progress */
 		INIT_LIST_HEAD(&peer->u.client.rpc_call_q);
 		INIT_LIST_HEAD(&peer->u.client.access_check_q);
+
+		/* clean stale async requests every two seconds */
+		peer->u.client.percall_cleaner.cb = wsubus_percall_clean_stale;
+		uloop_timeout_set(&peer->u.client.percall_cleaner, 2 * 1000);
+
 #if WSD_HAVE_UBUSPROXY
 	} else if (role == WSUBUS_ROLE_REMOTE) {
 #endif
@@ -299,7 +360,7 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 
 	json_tokener_free(peer->curr_msg.jtok);
 	peer->curr_msg.jtok = NULL;
-
+	uloop_timeout_cancel(&peer->u.client.percall_cleaner);
 	{
 		/* free everything from write queue */
 		struct wsu_writereq *p, *n;

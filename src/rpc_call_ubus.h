@@ -24,23 +24,15 @@
 #include "access_check.h"
 #include "common.h"
 
+#include <time.h>
 #include <libubus.h>
-
-/*  per-request context {{{ */
-struct wsubus_percall_ctx {
-	union {
-		struct ws_request_base;
-		struct ws_request_base _base;
-	};
-
-	struct ubusrpc_blob_call *call_args;
-	struct ubus_request *invoke_req;
-	struct wsubus_client_access_check_ctx access_check;
-};
 
 static void wsubus_percall_ctx_destroy(struct ws_request_base *base)
 {
 	struct wsubus_percall_ctx *call_ctx = container_of(base, struct wsubus_percall_ctx, _base);
+	struct wsu_peer *peer = wsi_to_peer(call_ctx->wsi);
+
+	peer->u.client.write_q_len--;
 	free(call_ctx->id);
 
 	call_ctx->call_args->destroy(&call_ctx->call_args->_base);
@@ -71,6 +63,7 @@ static struct wsubus_percall_ctx *wsubus_percall_ctx_create(
 	ret->call_args = call_args;
 	ret->invoke_req = NULL;
 	ret->access_check.req = NULL;
+	clock_gettime(CLOCK_MONOTONIC, &ret->req_start);
 
 	return ret;
 }
@@ -82,9 +75,6 @@ static void wsubus_call_on_completed(struct ubus_request *req, int status)
 	lwsl_debug("ubus call %p completed: %d\n", req, status);
 
 	struct wsubus_percall_ctx *curr_call = req->priv;
-	struct wsu_peer *peer = wsi_to_peer(curr_call->wsi);
-
-	peer->write_q_len--;
 
 	assert(curr_call->invoke_req == req);
 
