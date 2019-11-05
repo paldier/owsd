@@ -291,6 +291,10 @@ static inline void wsubus_percall_clean_stale(struct uloop_timeout *t)
 
 		passed = diff.tv_sec;
 
+		/* only clear stale method calls */
+		if (!cq->method_call)
+			continue;
+
 		/* if nsec larger than 10^9, increase sec and decrease nsec */
 		while (diff.tv_nsec > 1000000000) {
 			passed++;

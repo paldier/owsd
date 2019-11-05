@@ -203,7 +203,7 @@ int ubusrpc_handle_sub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct bl
 		ret = 9; /* FIXME this is UBUS_STATUS_NO_DATA, should have our enum */
 		goto out;
 	}
-
+	subinfo->method_call = false;
 #if WSD_HAVE_UBUS
 	/* register handler on ubus */
 	subinfo->ubus_handler = (struct ubus_event_handler){};

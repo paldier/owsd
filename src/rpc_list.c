@@ -106,6 +106,8 @@ int ubusrpc_handle_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc, struct bl
 	struct ws_request_base *req = calloc(1, sizeof(struct ws_request_base));
 #endif
 
+	req->method_call = false;
+
 	/* set up result blob buffer */
 	req->id = blob_memdup(id);
 	req->wsi = wsi;

@@ -54,6 +54,7 @@ static struct wsubus_percall_ctx *wsubus_percall_ctx_create(
 {
 	struct wsubus_percall_ctx *ret = malloc(sizeof *ret);
 
+	ret->method_call = true;
 	ret->wsi = wsi;
 	ret->id = id ? blob_memdup(id): NULL;
 	memset(&ret->retbuf, 0, sizeof ret->retbuf);
