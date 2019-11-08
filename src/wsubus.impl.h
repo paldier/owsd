@@ -386,7 +386,6 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 
 	json_tokener_free(peer->curr_msg.jtok);
 	peer->curr_msg.jtok = NULL;
-	uloop_timeout_cancel(&peer->u.client.percall_cleaner);
 	{
 		/* free everything from write queue */
 		struct wsu_writereq *p, *n;
@@ -398,6 +397,7 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 	}
 
 	if (peer->role == WSUBUS_ROLE_CLIENT) {
+		uloop_timeout_cancel(&peer->u.client.percall_cleaner);
 		struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 
 		prog->num_active_ses--;
