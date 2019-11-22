@@ -43,6 +43,8 @@
 #include <libubox/blobmsg.h>
 #include <libwebsockets.h>
 
+#include <sys/sysinfo.h>
+
 #if WSD_HAVE_UBUSPROXY
 #include <libubus.h>
 #endif
@@ -54,6 +56,40 @@
 #define UBUS_SID_MAX_STRLEN 32
 
 #define MAX_PROXIED_CALLS 20
+
+#define MAX_ASYNC_REQS 512
+
+/**
+ * \brief used to tie access_check_req context into list to be tracked/cancellable
+ */
+struct wsubus_client_access_check_ctx {
+	struct wsubus_access_check_req *req;
+	void (*destructor)(struct wsubus_client_access_check_ctx *);
+	struct list_head acq;
+};
+
+/*{{{ I/O handling */
+struct wsu_writereq {
+	size_t len;
+	size_t written;
+
+	struct list_head wq;
+
+	unsigned char buf[0];
+};
+
+/*  per-request context {{{ */
+struct wsubus_percall_ctx {
+	union {
+		struct ws_request_base;
+		struct ws_request_base _base;
+	};
+
+	struct ubusrpc_blob_call *call_args;
+	struct ubus_request *invoke_req;
+	struct wsubus_client_access_check_ctx access_check;
+	struct timespec req_start;
+};
 
 /**
  * \brief lws allocates one instance of this for each websocket connection
@@ -85,6 +121,8 @@ struct wsu_peer {
 		 */
 		struct wsu_client_session {
 			unsigned int id;
+			uint32_t rpc_q_len;
+			struct uloop_timeout percall_cleaner;
 			/* used to track/cancel the long-lived handles or async requests */
 			struct list_head rpc_call_q;
 			struct list_head access_check_q;
@@ -182,24 +220,7 @@ static inline void wsu_proxied_call_free(struct wsu_remote_bus *remote, struct w
 /*}}} */
 #endif /* WSD_HAVE_UBUSPROXY */
 
-/**
- * \brief used to tie access_check_req context into list to be tracked/cancellable
- */
-struct wsubus_client_access_check_ctx {
-	struct wsubus_access_check_req *req;
-	void (*destructor)(struct wsubus_client_access_check_ctx *);
-	struct list_head acq;
-};
 
-/*{{{ I/O handling */
-struct wsu_writereq {
-	size_t len;
-	size_t written;
-
-	struct list_head wq;
-
-	unsigned char buf[0];
-};
 
 /**
  * \brief queue text data for writing to the other end of WebSocket
@@ -256,18 +277,85 @@ static inline int wsu_sid_update(struct wsu_peer *peer, const char *sid)
 	return 0;
 }
 
+static inline void wsubus_percall_clean_stale(struct uloop_timeout *t)
+{
+	struct wsu_client_session *client = container_of(t, struct wsu_client_session, percall_cleaner);
+	struct wsubus_percall_ctx *cq, *tmp;
+	struct timespec cur_time, diff;
+	int passed;
+
+	clock_gettime(CLOCK_MONOTONIC, &cur_time);
+	list_for_each_entry_safe(cq, tmp, &client->rpc_call_q, cq) {
+		diff.tv_sec = cur_time.tv_sec - cq->req_start.tv_sec;
+		diff.tv_nsec = cur_time.tv_nsec - cq->req_start.tv_nsec;
+
+		passed = diff.tv_sec;
+
+		/* only clear stale method calls */
+		if (!cq->method_call)
+			continue;
+
+		/* if nsec larger than 10^9, increase sec and decrease nsec */
+		while (diff.tv_nsec > 1000000000) {
+			passed++;
+			diff.tv_nsec -= 1000000000;
+		}
+
+		/* if nsec negative, subtract till positive */
+		while (diff.tv_nsec < 0) {
+			passed--;
+			diff.tv_nsec += 1000000000;
+		}
+
+		/* if less than 5 seconds passed, leave the request */
+		if (passed < 5)
+			continue;
+
+		lwsl_debug("Cleaning stale asynchronous request\n");
+		list_del(&cq->cq);
+		cq->cancel_and_destroy(&cq->_base);
+	}
+
+	uloop_timeout_set(t, 2 * 1000);
+}
+
+static inline int recalc_req_max(struct prog_context *prog)
+{
+	int total_reqs = prog->total_req_max, reqs = MAX_ASYNC_REQS;
+
+	/**
+	 * return MAX_ASYNC_REQS if no clients
+	 */
+	if (prog->num_active_ses == 0)
+		return reqs;
+
+	if ((total_reqs / prog->num_active_ses) < MAX_ASYNC_REQS)
+		reqs = total_reqs / prog->num_active_ses;
+
+	return reqs;
+}
+
 /**
  * \brief initializes the peer struct
  */
-static inline int wsu_peer_init(struct wsu_peer *peer, enum wsu_role role)
+static inline int wsu_peer_init(struct lws *wsi, struct wsu_peer *peer, enum wsu_role role)
 {
 	if (role == WSUBUS_ROLE_CLIENT) {
+		struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 		static unsigned int clientid = 1;
+
+		prog->num_active_ses++;
+		prog->req_max = recalc_req_max(prog);
 
 		peer->u.client.id = clientid++;
 		/* these lists will keep track of async calls in progress */
 		INIT_LIST_HEAD(&peer->u.client.rpc_call_q);
 		INIT_LIST_HEAD(&peer->u.client.access_check_q);
+
+		/* clean stale async requests every two seconds */
+		peer->u.client.percall_cleaner.cb = wsubus_percall_clean_stale;
+		uloop_timeout_set(&peer->u.client.percall_cleaner, 2 * 1000);
+
 #if WSD_HAVE_UBUSPROXY
 	} else if (role == WSUBUS_ROLE_REMOTE) {
 #endif
@@ -298,7 +386,6 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 
 	json_tokener_free(peer->curr_msg.jtok);
 	peer->curr_msg.jtok = NULL;
-
 	{
 		/* free everything from write queue */
 		struct wsu_writereq *p, *n;
@@ -310,8 +397,11 @@ static inline void wsu_peer_deinit(struct lws *wsi, struct wsu_peer *peer)
 	}
 
 	if (peer->role == WSUBUS_ROLE_CLIENT) {
+		uloop_timeout_cancel(&peer->u.client.percall_cleaner);
 		struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 
+		prog->num_active_ses--;
+		prog->req_max = recalc_req_max(prog);
 		/* cancel each access check in progress */
 		/* */
 		/* NOTE:

@@ -103,7 +103,7 @@ static int ws_ubusproxy_cb(struct lws *wsi,
 		if (wsubus_client_should_destroy(wsi))
 			return -1;
 		lwsl_info("connected as proxy\n");
-		int rc = wsu_peer_init(peer, WSUBUS_ROLE_REMOTE);
+		int rc = wsu_peer_init(wsi, peer, WSUBUS_ROLE_REMOTE);
 		if (rc)
 			return -1;
 

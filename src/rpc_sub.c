@@ -193,6 +193,8 @@ int ubusrpc_handle_sub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct bl
 	int ret = 0;
 	struct wsu_client_session *client = wsi_to_client(wsi);
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
+	struct wsu_peer *peer = wsi_to_peer(wsi);
+
 
 	/* create entry */
 	struct ws_sub_info_ubus *subinfo = malloc(sizeof *subinfo);
@@ -201,7 +203,7 @@ int ubusrpc_handle_sub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct bl
 		ret = 9; /* FIXME this is UBUS_STATUS_NO_DATA, should have our enum */
 		goto out;
 	}
-
+	subinfo->method_call = false;
 #if WSD_HAVE_UBUS
 	/* register handler on ubus */
 	subinfo->ubus_handler = (struct ubus_event_handler){};
@@ -242,7 +244,7 @@ out:
 	char *response = jsonrpc__resp_ubus(id, ret, NULL);
 	wsu_queue_write_str(wsi, response);
 	free(response);
-
+	peer->u.client.rpc_q_len--;
 	return 0;
 }
 
@@ -320,7 +322,7 @@ int ubusrpc_handle_sub_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, stru
 	struct ubusrpc_blob_sub *ubusrpc = container_of(ubusrpc_, struct ubusrpc_blob_sub, _base);
 	char *response_str;
 	int ret = 0;
-
+	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct blob_buf sub_list_blob = {};
 	blob_buf_init(&sub_list_blob, 0);
 
@@ -346,6 +348,7 @@ int ubusrpc_handle_sub_list(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, stru
 	free(response_str);
 	free(ubusrpc->src_blob);
 	free(ubusrpc);
+	peer->u.client.rpc_q_len--;
 	return 0;
 }
 
@@ -354,6 +357,7 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 	struct ubusrpc_blob_sub *ubusrpc = container_of(ubusrpc_, struct ubusrpc_blob_sub, _base);
 	char *response;
 	int ret = 0;
+	struct wsu_peer *peer = wsi_to_peer(wsi);
 
 	lwsl_debug("unsub %s ret = %d\n", ubusrpc->pattern, ret);
 
@@ -378,7 +382,7 @@ int ubusrpc_handle_unsub(struct lws *wsi, struct ubusrpc_blob *ubusrpc_, struct 
 	free(response);
 	free(ubusrpc->src_blob);
 	free(ubusrpc);
-
+	peer->u.client.rpc_q_len--;
 	return 0;
 }
 

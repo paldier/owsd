@@ -44,6 +44,8 @@ struct lws;
 struct ws_request_base {
 	struct lws *wsi;
 
+	bool method_call;
+
 	struct blob_attr *id;
 	struct blob_buf retbuf;
 

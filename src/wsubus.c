@@ -123,19 +123,29 @@ static int wsubus_filter(struct lws *wsi)
 	return rc;
 }
 
+
 /**
  * \brief process one complete JSON RPC message (in blob) from client
  */
 static void wsu_on_msg_from_client(struct lws *wsi,
 		struct blob_attr *blob)
 {
+	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 	const struct wsu_client_session *client = wsi_to_client(wsi);
-	lwsl_info("client %u handling blobmsg buf\n", client->id);
-	(void)client;
-
-	struct jsonrpc_blob_req *jsonrpc_req = malloc(sizeof *jsonrpc_req);
+	struct jsonrpc_blob_req *jsonrpc_req = malloc(sizeof(*jsonrpc_req));
+	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct ubusrpc_blob *ubusrpc_req = NULL;
 	int e = 0;
+
+	(void)client;
+	lwsl_info("client %u handling blobmsg buf\n", client->id);
+
+	if (peer->u.client.rpc_q_len > prog->req_max) {
+		lwsl_notice("Blocking requests! Full queue for peer %p, queue length %d, req max=%d!\n", peer, peer->u.client.rpc_q_len, prog->req_max);
+		goto out;
+	}
+
+
 	if (!jsonrpc_req) {
 		/* free of NULL is no-op so okay */
 		lwsl_err("failed to alloc\n");
@@ -157,7 +167,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		goto out;
 	}
 
-	wsu_sid_update(wsi_to_peer(wsi), ubusrpc_req->sid);
+	wsu_sid_update(peer, ubusrpc_req->sid);
 
 	/* call handler which was set by parse function */
 	if (ubusrpc_req->handler(wsi, ubusrpc_req, jsonrpc_req->id) != 0) {
@@ -165,7 +175,7 @@ static void wsu_on_msg_from_client(struct lws *wsi,
 		e = JSONRPC_ERRORCODE__OTHER;
 		goto out;
 	}
-
+	peer->u.client.rpc_q_len++;
 out:
 	/* send jsonrpc error code if we failed...
 	 * otherwise handler itself is in charge of sending reply */
@@ -303,7 +313,7 @@ static int wsubus_cb(struct lws *wsi,
 
 	case LWS_CALLBACK_ESTABLISHED:
 		lwsl_notice(WSUBUS_PROTO_NAME ": established\n");
-		if (0 != wsu_peer_init(peer, WSUBUS_ROLE_CLIENT))
+		if (wsu_peer_init(wsi, peer, WSUBUS_ROLE_CLIENT) != 0)
 			return -1;
 		break;
 
@@ -317,7 +327,6 @@ static int wsubus_cb(struct lws *wsi,
 	case LWS_CALLBACK_CLIENT_WRITEABLE:
 		lwsl_notice(WSUBUS_PROTO_NAME ": wsi %p writable now\n", wsi);
 		return wsubus_tx_text(wsi);
-
 		/* client is leaving */
 	case LWS_CALLBACK_CLOSED:
 		lwsl_notice(WSUBUS_PROTO_NAME ": closed\n");

@@ -24,23 +24,15 @@
 #include "access_check.h"
 #include "common.h"
 
+#include <time.h>
 #include <libubus.h>
-
-/*  per-request context {{{ */
-struct wsubus_percall_ctx {
-	union {
-		struct ws_request_base;
-		struct ws_request_base _base;
-	};
-
-	struct ubusrpc_blob_call *call_args;
-	struct ubus_request *invoke_req;
-	struct wsubus_client_access_check_ctx access_check;
-};
 
 static void wsubus_percall_ctx_destroy(struct ws_request_base *base)
 {
 	struct wsubus_percall_ctx *call_ctx = container_of(base, struct wsubus_percall_ctx, _base);
+	struct wsu_peer *peer = wsi_to_peer(call_ctx->wsi);
+
+	peer->u.client.rpc_q_len--;
 	free(call_ctx->id);
 
 	call_ctx->call_args->destroy(&call_ctx->call_args->_base);
@@ -62,6 +54,7 @@ static struct wsubus_percall_ctx *wsubus_percall_ctx_create(
 {
 	struct wsubus_percall_ctx *ret = malloc(sizeof *ret);
 
+	ret->method_call = true;
 	ret->wsi = wsi;
 	ret->id = id ? blob_memdup(id): NULL;
 	memset(&ret->retbuf, 0, sizeof ret->retbuf);
@@ -71,6 +64,7 @@ static struct wsubus_percall_ctx *wsubus_percall_ctx_create(
 	ret->call_args = call_args;
 	ret->invoke_req = NULL;
 	ret->access_check.req = NULL;
+	clock_gettime(CLOCK_MONOTONIC, &ret->req_start);
 
 	return ret;
 }

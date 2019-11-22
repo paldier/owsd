@@ -53,6 +53,10 @@
 #define WSD_DEF_WWW_MAXAGE 0
 #endif
 
+#define MAX_TOTAL_ASYNC_REQS 30000
+#define MIN_TOTAL_ASYNC_REQS 1024
+#define QUERY_SIZE 1024
+
 struct prog_context global;
 
 static void usage(char *name)
@@ -126,6 +130,29 @@ static bool install_handler(int signum, void (*handler)(int))
 		return false;
 	}
 	return true;
+}
+
+static int calculate_total_req_max(void)
+{
+	long pages, page_size;
+	unsigned long long tot_available;
+	int total_reqs;
+
+	pages = sysconf(_SC_PHYS_PAGES);
+	page_size = sysconf(_SC_PAGE_SIZE);
+	tot_available = pages * page_size;
+
+	/* at most utilize 30% of the available memory, assume query size 1kB */
+	total_reqs = (tot_available * 0.3) / QUERY_SIZE;
+
+	/* at most allow 30 000 queries, netting circa 32MB memory usage */
+	if (total_reqs > MAX_TOTAL_ASYNC_REQS)
+		total_reqs = MAX_TOTAL_ASYNC_REQS;
+	/* worst case, 1 request per client, should never happen */
+	else if (total_reqs < MIN_TOTAL_ASYNC_REQS)
+		total_reqs = MIN_TOTAL_ASYNC_REQS;
+
+	return total_reqs;
 }
 
 int main(int argc, char *argv[])
@@ -416,6 +443,8 @@ ssl:
 
 	/* lws context constructor under which are all vhosts */
 	struct lws_context_creation_info lws_info = {};
+
+	global.total_req_max = calculate_total_req_max();
 
 	lws_info.uid = -1;
 	lws_info.gid = -1;

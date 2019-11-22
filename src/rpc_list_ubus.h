@@ -86,7 +86,7 @@ static int handle_list_ubus(struct ws_request_base *req, struct lws *wsi, struct
 	struct ubusrpc_blob_list *ubusrpc = container_of(ubusrpc_, struct ubusrpc_blob_list, _base);
 	char *response_str;
 	int ret = 0;
-
+	struct wsu_peer *peer = wsi_to_peer(wsi);
 	struct prog_context *prog = lws_context_user(lws_get_context(wsi));
 
 	lwsl_info("about to lookup %s\n", ubusrpc->pattern);
@@ -105,6 +105,8 @@ static int handle_list_ubus(struct ws_request_base *req, struct lws *wsi, struct
 		/* free memory */
 		free(response_str);
 	}
+
+	peer->u.client.rpc_q_len--;
 
 	return 0;
 }
