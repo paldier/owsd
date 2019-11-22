@@ -57,13 +57,6 @@
 #define MIN_TOTAL_ASYNC_REQS 1024
 #define QUERY_SIZE 1024
 
-/* list of per-vhost creation_info structs, with custom per-vhost storage */
-struct vhinfo_list {
-	struct lws_context_creation_info vh_info;
-	struct vhinfo_list *next;
-	struct vh_context vh_ctx;
-};
-
 struct prog_context global;
 
 static void usage(char *name)
@@ -137,29 +130,6 @@ static bool install_handler(int signum, void (*handler)(int))
 		return false;
 	}
 	return true;
-}
-
-static int new_vhinfo_list(struct vhinfo_list **currvh)
-{
-	int rc = 0;
-
-	struct vhinfo_list *newvh = malloc(sizeof *newvh);
-	if (!newvh) {
-		lwsl_err("OOM vhinfo init\n");
-		rc = -1;
-		goto error;
-	}
-	*newvh = (struct vhinfo_list){{0}};
-	INIT_LIST_HEAD(&newvh->vh_ctx.origins);
-	INIT_LIST_HEAD(&newvh->vh_ctx.users);
-	newvh->vh_ctx.name = "";
-	newvh->vh_info.options |= LWS_SERVER_OPTION_DISABLE_IPV6;
-
-	// add this listening vhost into our list
-	newvh->next = *currvh;
-	*currvh = newvh;
-error:
-	return rc;
 }
 
 static int calculate_total_req_max(void)
