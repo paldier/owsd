@@ -1,0 +1,10 @@
+include:
+  - project: 'iopsys/gitlab-ci-pipeline'
+    file: '/static-code-analysis.yml'
+
+stages:
+    - static_code_analysis
+   
+variables:
+  DEBUG: 'TRUE'
+  
