@@ -99,4 +99,6 @@ endif()
 include_directories(${WSD_INCLUDE})
 
 install(TARGETS owsd RUNTIME DESTINATION bin)
-install(TARGETS uproxyd RUNTIME DESTINATION bin)
+if (OWSD_UPROXYD)
+	install(TARGETS uproxyd RUNTIME DESTINATION bin)
+endif()
