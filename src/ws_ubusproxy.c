@@ -38,7 +38,9 @@
 #include <libubus.h>
 #include <libwebsockets.h>
 
+#if OWSD_JSON_VALIDATION
 #include <json-validator.h>
+#endif
 
 #include <strings.h>
 #include <errno.h>
