@@ -41,7 +41,8 @@
 /* contains list of urls where to connect as ubus proxy */
 static struct lws_context_creation_info clvh_info = {};
 /* FIXME: to support different certs per client, this must be per client */
-static bool rpcd_integration;
+static bool rpcd_integration = false;
+int wsbus_client_connnection_retry_timeout = 2000;
 
 static int client_path_comp(const void *k1, const void *k2, void *ptr);
 
@@ -401,7 +402,6 @@ void wsubus_client_connect_all(void)
 void wsubus_client_connect_retry(struct lws *wsi)
 {
 	struct client_connection_info *client;
-
 	if (!wsi)
 		return;
 
@@ -410,7 +410,7 @@ void wsubus_client_connect_retry(struct lws *wsi)
 		return;
 
 	client->wsi = NULL;
-	uloop_timeout_set(&client->timer, (++client->reconnect_count * 2000));
+	uloop_timeout_set(&client->timer,(++client->reconnect_count * wsbus_client_connnection_retry_timeout));
 }
 
 /* retry connection on disconnect */

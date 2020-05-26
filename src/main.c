@@ -108,6 +108,7 @@ static void usage(char *name)
 			"                   allowed to be exported to remote ubuses/ubux\n"
 			"                   Example: -X \"object1,object2->method,object3\"\n"
 			"Options with ... are repeatable (e.g. -u one -u two ...)\n"
+			"  -T <timeout>     Clients connection check retry timeout value \n"
 			"\n", name);
 }
 
@@ -280,7 +281,7 @@ int main(int argc, char *argv[])
 #ifdef LWS_OPENSSL_SUPPORT
 					"c:k:a:"
 #endif /* LWS_OPENSSL_SUPPORT */
-					"X:"
+					"X:T:"
 					)) != -1) {
 		switch (c) {
 #if WSD_HAVE_UBUS
@@ -468,7 +469,14 @@ ssl:
 			lwsl_notice("ubusx ACL: \"%s\"\n", optarg);
 			ubusx_acl__add_objects(optarg);
 			break;
-
+		case 'T':
+			{
+				extern int wsbus_client_connnection_retry_timeout;
+				int time_out=atoi(optarg);
+				if(time_out > 0)
+					wsbus_client_connnection_retry_timeout=time_out;
+			}
+			break;
 		case 'h':
 		default:
 			usage(argv[0]);

@@ -39,6 +39,16 @@
 #define CLEAN_TIMEOUT (UBUS_CALL_TIMEOUT + (3 * 1000))
 #define MAX_RECONNECT_COUNT 10
 
+typedef struct uproxy_control_s
+{
+	int client_max_reconnect_time;
+	int all_clients_check_timeout;
+}uproxy_control_t;
+
+uproxy_control_t uproxy_c={MAX_RECONNECT_COUNT,3600000};
+#define GET_CLIENT_MAX_RECONNECT_TIME()   uproxy_c.client_max_reconnect_time
+#define GET_All_CLIENTS_CHECK_TIMEOUT()   uproxy_c.all_clients_check_timeout
+
 /** structure of a ubus callback function
  * static void cb_fn(struct ubus_request *req, int type, struct blob_attr *msg)
  **/
@@ -236,7 +246,7 @@ static void clean_stale_clients_cb(struct ubus_request *req, int type, struct bl
 			continue;
 
 		reconnect_count = json_get_int(client, "reconnect_count");
-		if (reconnect_count <= MAX_RECONNECT_COUNT)
+		if (reconnect_count <= GET_CLIENT_MAX_RECONNECT_TIME())
 			continue;
 
 		index = json_get_int(client, "index");
@@ -325,7 +335,7 @@ out_str:
 static void add_all_clients(struct uloop_timeout *timer)
 {
 	uint32_t id;
-	int ret, timeout = 30;
+	int ret, timeout = GET_All_CLIENTS_CHECK_TIMEOUT();
 	struct blob_buf bb = {};
 
 	ubus_lookup_id(ctx, "router.network", &id);
@@ -341,12 +351,10 @@ static void add_all_clients(struct uloop_timeout *timer)
 
 	if (ret) {
 		fprintf(stderr, "Couln't get hosts from router.network hosts ret = %d\n", ret);
-		timeout = 5;
+		timeout = 5000;
 	}
-
 retry:
-	uloop_timeout_set(timer, timeout * 1000);
-	uloop_timeout_add(timer);
+	uloop_timeout_set(timer,timeout);
 }
 
 static int start_ubus_listen(struct ubus_event_handler *listener)
@@ -373,12 +381,46 @@ static void prepare_timers(struct uloop_timeout *add_timer, struct uloop_timeout
 	uloop_timeout_add(clean_timer);
 }
 
+static void usage(char *name)
+{
+	fprintf(stderr,
+			"Usage: %s -r -t -h ...\n\n"
+			"  -r <reconnect time> 	Set maximum connection check time on each client \n"
+			"  -t <timeout>	       	Timeout value on scanning all clients \n"
+			"  -h               	Show this help screen.\n \n"
+			"\n", name);
+}
+
 int main(int argc, char **argv)
 {
 	struct ubus_event_handler listener = {};
 	struct uloop_timeout add_timer = {}, clean_timer = {};
 	int rv = 0;
-
+	int opt = 0;
+	while((opt=getopt(argc,argv,"r:t:h"))!= -1)
+	{
+		switch(opt)
+		{
+			case 'r':
+				{
+					int retime=atoi(optarg);
+					if(retime > 0)
+						uproxy_c.client_max_reconnect_time = retime;
+				}
+				break;
+			case 't':
+				{
+					int time_out=atoi(optarg);
+					if(time_out > 0)
+						uproxy_c.all_clients_check_timeout=time_out;
+				}
+				break;
+			case 'h':
+			default:
+				usage(argv[0]);
+				return 0;
+		}
+	}
 	rv = init_ubus();
 	if (rv)
 		goto out;
