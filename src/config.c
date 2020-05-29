@@ -241,10 +241,17 @@ int parse_ubusx_json(struct json_object *ubusx, struct global_config *cfg) {
 				ubusx_prefix = 1;//UBUSX_PREFIX_MAC;
 	}
 
-
 	json_object_object_get_ex(ubusx, "rpcd_integration", &arg);
 	if (arg && json_object_get_boolean(arg))
 		wsubus_client_set_rpcd_integration(true);
+
+	json_object_object_get_ex(ubusx, "reconnect_timeout", &arg);
+	if (arg) {
+		extern int wsbus_client_connnection_retry_timeout;
+		int time_out = json_object_get_int(arg);
+		if(time_out > 0)
+			wsbus_client_connnection_retry_timeout = time_out;
+	}
 
 	return 0;
 }
