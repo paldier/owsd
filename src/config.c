@@ -11,8 +11,8 @@
 int new_vhinfo_list(struct vhinfo_list **currvh)
 {
 	   int rc = 0;
-
 	   struct vhinfo_list *newvh = malloc(sizeof *newvh);
+
 	   if (!newvh) {
 			   lwsl_err("OOM vhinfo init\n");
 			   rc = -1;
@@ -34,18 +34,20 @@ error:
 
 int append_origins(struct json_object *cfg, struct vhinfo_list *currvh)
 {
-	struct json_object *elem;
 	int i;
 
 	if (!cfg || !json_object_is_type(cfg, json_type_array))
 		return -1;
 
 	for (i = 0; i < json_object_array_length(cfg); i++) {
+		struct json_object *elem;
+		struct str_list *str;
+
 		elem = json_object_array_get_idx(cfg, i);
 		if (!elem)
 			continue;
 
-		struct str_list *str = malloc(sizeof *str);
+		str = malloc(sizeof *str);
 		if (!str)
 			return -1;
 
@@ -120,10 +122,13 @@ int create_vhost_by_json(char *key, struct json_object *obj, struct vhinfo_list 
 	if (arg && json_object_is_type(arg, json_type_array)) {
 		for (i = 0; i < json_object_array_length(arg); i++) {
 			struct json_object *elem = json_object_array_get_idx(arg, i);
+			struct str_list *str;
+
 			if (!elem)
 				continue;
 
-			struct str_list *str = malloc(sizeof *str);
+			str = malloc(sizeof *str);
+
 			if (!str)
 				continue;
 
@@ -219,12 +224,13 @@ int parse_ubusx_json(struct json_object *ubusx, struct global_config *cfg) {
 	json_object_object_get_ex(ubusx, "peer", &arg);
 	if (arg) {
 		for (i = 0; i < json_object_array_length(arg); i++) {
+			const char *proto, *addr, *path;
+			int port;
+
 			elem = json_object_array_get_idx(arg, i);
 			if (!elem)
 				continue;
 
-			const char *proto, *addr, *path;
-			int port;
 			if (!lws_parse_uri((char *) json_object_get_string(elem), &proto, &addr, &port, &path) &&
 					strncmp(proto, "wss", 4) == 0) {
 				cfg->any_ssl = true;
@@ -236,6 +242,7 @@ int parse_ubusx_json(struct json_object *ubusx, struct global_config *cfg) {
 	json_object_object_get_ex(ubusx, "prefix", &arg);
 	if (arg) {
 		const char *prefix = json_object_get_string(arg);
+
 		if (prefix)
 			if (strncmp(prefix, "mac", 4) == 0)
 				ubusx_prefix = 1;//UBUSX_PREFIX_MAC;
@@ -249,7 +256,8 @@ int parse_ubusx_json(struct json_object *ubusx, struct global_config *cfg) {
 	if (arg) {
 		extern int wsbus_client_connnection_retry_timeout;
 		int time_out = json_object_get_int(arg);
-		if(time_out > 0)
+
+		if (time_out > 0)
 			wsbus_client_connnection_retry_timeout = time_out;
 	}
 
