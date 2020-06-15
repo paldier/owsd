@@ -509,7 +509,7 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 		struct blob_attr *msg)
 {
 	struct blob_attr *tb[__CLIENT_REM_MAX];
-	struct client_connection_info *client;
+	struct client_connection_info *client, *tmp;
 	const char *ip;
 
 	blobmsg_parse(client_remove_policy, __CLIENT_REM_MAX, tb,
@@ -524,7 +524,7 @@ int remove_client(struct ubus_context *ctx, struct ubus_object *obj,
 		lwsl_notice("remove client index %d\n", index);
 	} else if (tb[CLIENT_REM_IP]) {
 		ip = blobmsg_get_string(tb[CLIENT_REM_IP]);
-		list_for_each_entry(client, &connect_infos.clients, list) {
+			list_for_each_entry_safe(client, tmp, &connect_infos.clients, list) {
 			if (strcmp(ip, client->connection_info.address))
 				continue;
 
