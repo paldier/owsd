@@ -305,8 +305,8 @@ static inline void wsubus_percall_clean_stale(struct uloop_timeout *t)
 			diff.tv_nsec += 1000000000;
 		}
 
-		/* if less than 5 seconds passed, leave the request */
-		if (passed < 5)
+		/* if less than 10 seconds passed, leave the request */
+		if (passed < 10)
 			continue;
 
 		lwsl_debug("Cleaning stale asynchronous request\n");
